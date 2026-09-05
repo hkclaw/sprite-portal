@@ -872,3 +872,99 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   border-color: #c8403a;
   color: #8a1f17;
 }
+
+/* --- Glance strip under each sprite-room page-head --- */
+.glance-strip {
+  margin: 14px 0 18px;
+  padding: 12px 14px 14px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.glance-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.glance-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.glance-toggle {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-radius: 99px;
+  padding: 3px 12px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.glance-toggle:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.glance-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(20, 143, 138, 0.22);
+  border-color: var(--ink);
+}
+
+.glance-strip.is-collapsed .glance-body {
+  display: none;
+}
+
+.glance-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.glance-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  background: var(--hover);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  max-width: 100%;
+}
+
+.glance-chip-label {
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  flex: 0 0 auto;
+}
+
+.glance-chip-value {
+  color: var(--ink);
+  font-weight: 700;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.glance-empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+

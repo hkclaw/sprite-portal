@@ -1,6 +1,6 @@
 import { startRouter } from "./router.js";
 import { addFormFieldsFor } from "./schema.js";
-import { findSprite } from "./sprites.js";
+import { SPRITES, findSprite } from "./sprites.js";
 import {
   addLocalItem,
   completeFirstOpen,
@@ -69,6 +69,80 @@ function writeHopperFilter(value) {
  * @type {"open"|"today"|"overdue"|"all"}
  */
 let activeHopperFilter = readHopperFilter();
+
+const GLANCE_STORAGE_KEY = "sprite-portal:glance-expanded";
+const VALID_GLANCE_BOT_IDS = SPRITES.map((sprite) => sprite.id);
+
+/**
+ * Read the glance expand/collapse map from sessionStorage. Each bot has its
+ * own toggle so collapsing Jazz doesn't hide Jacob; unknown keys default to
+ * expanded so freshly-added sprites (or stale storage) land in the standard
+ * visible state. Storage failure (quota, private mode) silently defaults to
+ * an empty map — every bot then renders expanded.
+ * @returns {Record<string, boolean>}
+ */
+function readGlanceExpandedMap() {
+  try {
+    const raw = sessionStorage.getItem(GLANCE_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    /** @type {Record<string, boolean>} */
+    const out = {};
+    for (const botId of VALID_GLANCE_BOT_IDS) {
+      const v = parsed[botId];
+      if (typeof v === "boolean") out[botId] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Persist the glance expand/collapse map. Wrapped in try/catch so quota
+ * errors or locked-down storage never break the click path.
+ * @param {Record<string, boolean>} map
+ */
+function writeGlanceExpandedMap(map) {
+  try {
+    sessionStorage.setItem(GLANCE_STORAGE_KEY, JSON.stringify(map));
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * UI-only glance-strip expand/collapse state. Module var keeps the choice
+ * across paint() while the sessionStorage mirror makes it sticky for the
+ * tab session. Default is expanded (true); only collapsed bots are stored.
+ * @type {Record<string, boolean>}
+ */
+let glanceExpandedMap = readGlanceExpandedMap();
+
+/**
+ * @param {string} botId
+ * @returns {boolean} true when the glance strip should render its body
+ */
+function isGlanceExpanded(botId) {
+  const stored = glanceExpandedMap[botId];
+  return stored === undefined ? true : stored;
+}
+
+/**
+ * Flip the stored preference for one bot. Only writes a key when the new
+ * value differs from the default (expanded=true), so untouched bots never
+ * fill the storage slot and stale keys from renamed sprites get pruned
+ * naturally on the next read.
+ * @param {string} botId
+ */
+function toggleGlanceExpanded(botId) {
+  const next = !isGlanceExpanded(botId);
+  const merged = { ...glanceExpandedMap, [botId]: next };
+  if (next) delete merged[botId];
+  glanceExpandedMap = merged;
+  writeGlanceExpandedMap(glanceExpandedMap);
+}
 
 /** When set, renderSprite opens the edit form for this item inline. */
 let editingItemId = null;
@@ -149,7 +223,7 @@ async function paint(pathname) {
       items,
       flash && flash.spriteId === sprite.id ? flash : null,
       allItems,
-      { deskFilter: activeDeskFilter, editingId: editingItemId },
+      { deskFilter: activeDeskFilter, editingId: editingItemId, expanded: isGlanceExpanded(sprite.id) },
     );
     return;
   }
@@ -196,6 +270,15 @@ document.addEventListener("click", async (event) => {
     if (filter && VALID_HOPPER_FILTERS.includes(filter)) {
       activeHopperFilter = /** @type {"open"|"today"|"overdue"|"all"} */ (filter);
       writeHopperFilter(activeHopperFilter);
+    }
+    await paint(path);
+    return;
+  }
+
+  if (action === "glance-toggle") {
+    const bot = button.getAttribute("data-bot");
+    if (bot && VALID_GLANCE_BOT_IDS.includes(bot)) {
+      toggleGlanceExpanded(bot);
     }
     await paint(path);
     return;

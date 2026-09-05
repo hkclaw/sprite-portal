@@ -1,5 +1,5 @@
 import { barChart, countByStatus, todayOverdueCounts } from "./charts.js";
-import { addFormFieldsFor, fieldKitFor, hopperHint, priorityLabel, statusLabel } from "./schema.js";
+import { addFormFieldsFor, fieldKitFor, hopperHint, isOpen, priorityLabel, statusLabel } from "./schema.js";
 import { SHARED_ACTIONS, SPRITES } from "./sprites.js";
 import { openCountFor, openItems } from "./store.js";
 
@@ -679,6 +679,7 @@ export function renderDashboard(items, opts = {}) {
 export function renderSprite(sprite, items, flash, allItems = items, opts = {}) {
   const deskFilter = opts.deskFilter ?? "open";
   const editingId = opts.editingId ?? null;
+  const glanceExpanded = opts.expanded !== false;
   const openCount = items.filter((item) => item.status === "open").length;
   const ordered = items.slice().sort((a, b) => {
     const rank = { open: 0, snoozed: 1, done: 2 };
@@ -721,6 +722,7 @@ export function renderSprite(sprite, items, flash, allItems = items, opts = {}) 
           ${primary}
           <button type="button" class="btn" data-action="restore-seeds" title="清除本機覆寫，重新載入 items.json 種子">還原種子</button>
         </div>
+        ${glanceStripHtml(items, { botId: sprite.id, expanded: glanceExpanded })}
       </header>
       ${flashPanel(flash)}
       ${spriteCharts(sprite, items)}
@@ -764,6 +766,160 @@ export function renderNotFound(items = []) {
     "",
     items,
   );
+}
+
+/**
+ * Per-bot glance chip projection. Pure: never mutates `items`, never
+ * touches the store or seeds. Each sprite surfaces the few facts the
+ * user would scan first when they land in the room — count chips for
+ * Jacob/HomePilot/ChapterMind, the newest row's persona fields for the
+ * rest. Empty arrays mean "no glance info yet"; the strip then renders
+ * a friendly one-liner instead of a cloud of "—".
+ * @param {import("./schema.js").SpriteItem[]} items
+ * @param {string} botId
+ * @returns {{ label: string, value: string }[]}
+ */
+function glanceChips(items, botId) {
+  const open = items.filter(isOpen);
+  const sortedByNewest = items
+    .slice()
+    .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+  const newestOpen = sortedByNewest.find(isOpen) ?? null;
+  const newestAny = sortedByNewest[0] ?? null;
+
+  switch (botId) {
+    case "jacob": {
+      const { today, overdue } = todayOverdueCounts(items);
+      const high = open.filter((item) => item.priority === "high").length;
+      const earliest = open
+        .filter((item) => typeof item.due === "string" && item.due)
+        .map((item) => item.due)
+        .sort()[0];
+      return [
+        { label: "Today", value: String(today) },
+        { label: "Overdue", value: String(overdue) },
+        { label: "高優先", value: String(high) },
+        { label: "到期", value: earliest || "—" },
+      ];
+    }
+    case "english-edge": {
+      if (!newestOpen) return [];
+      const hasPrep = typeof newestOpen.prep === "string" && newestOpen.prep;
+      return [
+        { label: "下一堂", value: String(newestOpen.nextClass || "—") },
+        { label: "grammar", value: String(newestOpen.grammar || "—") },
+        { label: "vocab", value: String(newestOpen.vocab || "—") },
+        {
+          label: hasPrep ? "prep" : "speaking script status",
+          value: String(hasPrep ? newestOpen.prep : newestOpen.scriptStatus || "—"),
+        },
+      ];
+    }
+    case "chaptermind": {
+      const sortedOpen = open
+        .slice()
+        .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+      const focused = sortedOpen.find((item) => item.shelf === "在讀") ?? sortedOpen[0] ?? null;
+      // Wishlist count covers any status — the seed pins a done wishlist
+      // item too, so an "open-only" count would understate the pile.
+      const wishlist = items.filter((item) => item.shelf === "wishlist").length;
+      if (!focused) {
+        return [
+          { label: "書架", value: "—" },
+          { label: "進度", value: "—" },
+          { label: "想討論呢段", value: "—" },
+          { label: "wishlist", value: String(wishlist) },
+        ];
+      }
+      const discuss = typeof focused.discuss === "string" ? focused.discuss : "";
+      const trimmed = discuss.length > 48 ? `${discuss.slice(0, 48)}…` : discuss;
+      return [
+        { label: "書架", value: focused.shelf || "在讀" },
+        { label: "進度", value: String(focused.progress || "—") },
+        { label: "想討論呢段", value: trimmed || "—" },
+        { label: "wishlist", value: String(wishlist) },
+      ];
+    }
+    case "homepilot": {
+      const urgent = open.filter((item) => item.urgent === true).length;
+      const nearest = open
+        .filter((item) => typeof item.deadline === "string" && item.deadline)
+        .slice()
+        .sort((a, b) => (a.deadline || "").localeCompare(b.deadline || ""))[0];
+      return [
+        { label: "urgent", value: String(urgent) },
+        { label: "deadline", value: nearest ? String(nearest.deadline) : "—" },
+        { label: "供應商", value: nearest ? String(nearest.vendor || "—") : "—" },
+      ];
+    }
+    case "jazz": {
+      const target = newestOpen ?? newestAny;
+      if (!target) return [];
+      const price = target.pricePerLiter;
+      const countdown = target.oilCountdown;
+      /** @type {{ label: string, value: string }[]} */
+      const chips = [
+        { label: "odo", value: String(target.odo || "—") },
+        { label: "站", value: String(target.station || "—") },
+        {
+          label: "$/L",
+          value: price === undefined || price === null || price === "" ? "—" : String(price),
+        },
+      ];
+      if (countdown !== undefined && countdown !== null && countdown !== "") {
+        chips.push({ label: "換油 countdown", value: String(countdown) });
+      }
+      return chips;
+    }
+    case "vitalpilot": {
+      const target = newestOpen ?? newestAny;
+      if (!target) return [];
+      return [
+        { label: "Garmin snapshot", value: String(target.garmin || "—") },
+        { label: "活動", value: String(target.activity || "—") },
+        { label: "秤重", value: String(target.weighIn || "—") },
+        { label: "戒酒 streak", value: String(target.soberStreak || "—") },
+      ];
+    }
+    default:
+      return [];
+  }
+}
+
+/**
+ * Render the per-bot glance strip. Lives in the sprite-room page-head
+ * right after the action bar. Never writes to the store / overlay /
+ * seeds — `opts.expanded` is a UI-only hint whose persistence lives in
+ * main.js (sessionStorage mirror of the hopper-filter pattern).
+ * @param {import("./schema.js").SpriteItem[]} items
+ * @param {{ botId?: string, expanded?: boolean }} [opts]
+ */
+function glanceStripHtml(items, opts = {}) {
+  const botId = opts.botId || (items[0] && items[0].botId) || "";
+  const expanded = opts.expanded !== false;
+  const chips = glanceChips(items, botId);
+  const hasChips = chips.length > 0;
+  const body = hasChips
+    ? `<div class="glance-chips">${chips
+        .map(
+          (chip) => `
+        <span class="glance-chip">
+          <span class="glance-chip-label">${escapeHtml(chip.label)}</span>
+          <span class="glance-chip-value">${escapeHtml(chip.value)}</span>
+        </span>`,
+        )
+        .join("")}</div>`
+    : `<p class="glance-empty">${escapeHtml("呢度暫時冇速覽——書枱清清哋。")}</p>`;
+  const toggleLabel = expanded ? "收埋" : "展開";
+  return `
+    <section class="glance-strip${expanded ? "" : " is-collapsed"}" data-glance data-bot="${escapeAttr(botId)}">
+      <header class="glance-head">
+        <span class="glance-eyebrow">精靈速覽</span>
+        <button type="button" class="glance-toggle" data-action="glance-toggle" data-bot="${escapeAttr(botId)}" aria-expanded="${expanded ? "true" : "false"}" title="${expanded ? "收埋速覽" : "展開速覽"}">${escapeHtml(toggleLabel)}</button>
+      </header>
+      <div class="glance-body"${expanded ? "" : ' hidden=""'}>${body}</div>
+    </section>
+  `;
 }
 
 function escapeHtml(value) {
