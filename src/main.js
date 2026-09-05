@@ -4,7 +4,6 @@ import {
   completeFirstOpen,
   completeItem,
   getFlash,
-  itemsForBot,
   loadItems,
   runSpriteAction,
   snoozeFirstOpen,
@@ -40,17 +39,24 @@ async function paint(pathname) {
   const match = path.match(/^\/sprites\/([^/]+)$/);
   if (match) {
     const sprite = findSprite(match[1]);
+    const allItems = await loadItems();
     if (!sprite) {
-      app.innerHTML = renderNotFound();
+      app.innerHTML = renderNotFound(allItems);
       return;
     }
-    const items = await itemsForBot(sprite.id);
+    const items = allItems.filter((item) => item.botId === sprite.id);
     const flash = getFlash();
-    app.innerHTML = renderSprite(sprite, items, flash && flash.spriteId === sprite.id ? flash : null);
+    app.innerHTML = renderSprite(
+      sprite,
+      items,
+      flash && flash.spriteId === sprite.id ? flash : null,
+      allItems,
+    );
     return;
   }
 
-  app.innerHTML = renderNotFound();
+  const allItems = await loadItems();
+  app.innerHTML = renderNotFound(allItems);
 }
 
 startRouter(paint);
