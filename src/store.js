@@ -428,109 +428,385 @@ export function addLocalItem({ botId, title, due, persona }) {
   return item;
 }
 
-/** Sprite-specific mock handlers that leave a visible, branded result. */
+/**
+ * Sprite-specific handlers that perform REAL overlay writes for each
+ * primary action. After the write helpers (updateLocalItem /
+ * addLocalItem / completeItem) return, the flash is set with an
+ * action-specific summary so the toast reflects the POST-write state —
+ * stale pre-write counts would mislead the user.
+ *
+ * Per-sprite notes:
+ *   - Jacob (inbox): tag the oldest open Jacob card (already-sorted
+ *     ascending by updatedAt) with 已整理/跟進, AND complete one
+ *     high-priority open if any exists. The 高優先 glance chip drops
+ *     and the hopper tag line visibly changes.
+ *   - English Edge (class): bump the latest open class card's prep /
+ *     scriptStatus. If no open class card exists, addLocalItem a new
+ *     local-* class card so the glance strip has something to show.
+ *   - ChapterMind (progress): bump the latest 在讀 open card's
+ *     progress percentage and refresh discuss. If nothing 在讀,
+ *     addLocalItem a wishlist card.
+ *   - HomePilot (urgent): pick the most urgent candidate — already
+ *     urgent items win; otherwise nearest deadline / first open.
+ *     Stamp urgent:true + houseStatus 處理中.
+ *   - Jazz (refuel): addLocalItem a local-* refuel log with full
+ *     persona. NEVER touch the fixed jz-refuel-log id; that path is
+ *     intentionally removed so the seed jazz rows on disk stay clean.
+ *   - VitalPilot (garmin): update the latest open vitalpilot row (or
+ *     a prior local-* snapshot) with ONLY garmin / activity / weighIn
+ *     / soberStreak. No medical diagnoses or account secrets.
+ */
 export function runSpriteAction(sprite, actionId) {
   const botId = sprite.id;
 
   if (actionId === "inbox") {
-    const open = (cache ?? []).filter((item) => item.botId === botId && isOpen(item));
-    const work = open.filter((item) => item.list === "Work").length;
-    const personal = open.filter((item) => item.list === "Personal").length;
-    const today = open.filter((item) => item.when === "Today").length;
-    const overdue = open.filter((item) => item.when === "Overdue").length;
-    const high = open.filter((item) => item.priority === "high").length;
+    const items = cache ?? [];
+    const open = items.filter((item) => item.botId === botId && isOpen(item));
+
+    // Oldest open = lowest updatedAt. Tagging it makes the hopper row
+    // visibly move (tag line) and the desk table row pick up the new
+    // value. 已整理 for routine cards, 跟進 if it's already high
+    // priority so we don't double-tag a row we may also close below.
+    const sortedByOldest = open
+      .slice()
+      .sort((a, b) => (a.updatedAt || "").localeCompare(b.updatedAt || ""));
+    const oldest = sortedByOldest[0] ?? null;
+    const oldestTitle = oldest ? oldest.title : null;
+    const oldestFollowUp = oldest
+      ? oldest.priority === "high"
+        ? "跟進"
+        : "已整理"
+      : null;
+    if (oldest && oldestFollowUp) {
+      updateLocalItem(oldest.id, { tag: oldestFollowUp });
+    }
+
+    // One high-priority open, if any, gets completed so the 高優先
+    // glance chip drops. patchItem merges so the tag survives if the
+    // row is also the oldest (single-id path).
+    const highPriority = open.find((item) => item.priority === "high");
+    const highPriorityTitle = highPriority ? highPriority.title : null;
+    if (highPriority) {
+      completeItem(highPriority.id);
+    }
+
+    // Recompute from cache so the post-write counts drive the flash.
+    const liveOpen = (cache ?? []).filter(
+      (item) => item.botId === botId && isOpen(item),
+    );
+    const work = liveOpen.filter((item) => item.list === "Work").length;
+    const personal = liveOpen.filter((item) => item.list === "Personal").length;
+    const today = liveOpen.filter((item) => item.when === "Today").length;
+    const overdue = liveOpen.filter((item) => item.when === "Overdue").length;
+    const high = liveOpen.filter((item) => item.priority === "high").length;
+    const earliest = liveOpen
+      .filter((item) => typeof item.due === "string" && item.due)
+      .map((item) => item.due)
+      .sort()[0];
+
+    /** @type {string[]} */
+    const parts = [
+      `TickTick Work ${work} / Personal ${personal}`,
+      `Today ${today}`,
+      `Overdue ${overdue}`,
+      `優先高 ${high} 張`,
+    ];
+    if (oldestFollowUp && oldestTitle) parts.push(`已標「${oldestFollowUp}」· ${oldestTitle}`);
+    if (highPriorityTitle) parts.push(`已勾走「${highPriorityTitle}」`);
+    parts.push(`最早到期 ${earliest || "—"}`);
+
     setFlash({
       spriteId: botId,
       kind: "inbox",
       title: "執漏收件箱",
-      body: `TickTick Work ${work} / Personal ${personal}。Today ${today} · Overdue ${overdue}。優先高 ${high} 張。到期最早：${open[0]?.due || "—"}。`,
+      body: `${parts.join(" · ")}。`,
     });
     return cache ?? [];
   }
 
   if (actionId === "class") {
-    const next = (cache ?? []).find((item) => item.botId === botId && isOpen(item));
+    const items = cache ?? [];
+    const open = items.filter((item) => item.botId === botId && isOpen(item));
+    const sortedByNewest = open
+      .slice()
+      .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+    let latest = sortedByNewest[0] ?? null;
+
+    if (latest) {
+      // Bump prep / scriptStatus on the latest open class card so the
+      // glanceChips english-edge projection (nextClass, grammar, vocab,
+      // prep) visibly moves. updatedAt stamps from writeOverlayForUpdate
+      // so this row stays the newestOpen.
+      updateLocalItem(latest.id, {
+        prep: "已備",
+        scriptStatus: "就緒",
+      });
+    } else {
+      // No open class card: addLocalItem a local-* fallback so the
+      // glance strip has fresh persona to project. No fixed id, no
+      // seed-row mutation.
+      const created = addLocalItem({
+        botId,
+        title: "新增課堂卡",
+        persona: {
+          nextClass: todayYmd(),
+          grammar: "待填",
+          vocab: "待填",
+          prep: "未備",
+          scriptStatus: "未寫",
+        },
+      });
+      latest = created;
+    }
+
+    if (!latest) {
+      setFlash({
+        spriteId: botId,
+        kind: "class",
+        title: "今日課堂",
+        body: "冇未完成嘅課堂卡。",
+      });
+      return cache ?? [];
+    }
+
     setFlash({
       spriteId: botId,
       kind: "class",
       title: "今日課堂",
-      body: next
-        ? `下一堂 ${next.nextClass || "—"}。grammar：${next.grammar || "—"}。vocab：${next.vocab || "—"}。speaking script status：${next.scriptStatus || "—"}。prep：${next.prep || "—"}。`
-        : "冇未完成嘅課堂卡。",
+      body: `下一堂 ${latest.nextClass || "—"}。grammar：${latest.grammar || "—"}。vocab：${latest.vocab || "—"}。speaking script status：${latest.scriptStatus || "—"}。prep：${latest.prep || "—"}。`,
     });
     return cache ?? [];
   }
 
   if (actionId === "progress") {
-    const books = (cache ?? []).filter((item) => item.botId === botId);
-    const reading = books.filter((item) => item.shelf === "在讀");
-    const wishlist = books.filter((item) => item.shelf === "wishlist");
+    const items = cache ?? [];
+    const reading = items.filter(
+      (item) => item.botId === botId && item.shelf === "在讀" && isOpen(item),
+    );
+    const sortedByNewest = reading
+      .slice()
+      .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+    let focused = sortedByNewest[0] ?? null;
+
+    if (focused) {
+      // Bump the percentage in the progress string by +5 if it carries
+      // one; otherwise append a hint. Refresh discuss with a small
+      // marker so the chaptermind glance chip (進度 / 想討論呢段)
+      // visibly moves after the write.
+      const cur = String(focused.progress || "");
+      const match = cur.match(/(\d+)(\s*%)/);
+      const newProgress = match
+        ? cur.replace(
+            /(\d+)(\s*%)/,
+            (_m, n, sp) => `${Math.min(100, parseInt(n, 10) + 5)}${sp}%`,
+          )
+        : `${cur}${cur ? " · " : ""}剛加咗 5%`;
+      const oldDiscuss = String(focused.discuss || "").trim();
+      const newDiscuss = oldDiscuss ? `${oldDiscuss} · 重新整理過。` : "剛整理過。";
+      updateLocalItem(focused.id, {
+        progress: newProgress,
+        discuss: newDiscuss,
+      });
+    } else {
+      // No 在讀 open card: addLocalItem a wishlist row so the
+      // glanceChips chaptermind projection (書架 / 進度 / 討論 /
+      // wishlist count) has fresh persona to show.
+      const created = addLocalItem({
+        botId,
+        title: "新增 wishlist 書",
+        persona: {
+          shelf: "wishlist",
+          progress: "剛加入",
+          discuss: "待揀書",
+        },
+      });
+      focused = created;
+    }
+
+    if (!focused) {
+      setFlash({
+        spriteId: botId,
+        kind: "progress",
+        title: "閱讀進度",
+        body: "書架暫時空住。",
+      });
+      return cache ?? [];
+    }
+
+    const liveBooks = (cache ?? []).filter((item) => item.botId === botId);
+    const liveReading = liveBooks.filter((item) => item.shelf === "在讀");
+    const liveWishlist = liveBooks.filter((item) => item.shelf === "wishlist");
     setFlash({
       spriteId: botId,
       kind: "progress",
       title: "閱讀進度",
-      body: reading[0]
-        ? `在讀「${reading[0].title}」· ${reading[0].progress || "—"}。想討論呢段：${reading[0].discuss || "—"}`
-        : "書架暫時空住。",
+      body: `在讀「${focused.title}」· ${focused.progress || "—"}。想討論呢段：${focused.discuss || "—"}`,
       stats: [
-        { label: "在讀", value: String(reading.length) },
-        { label: "wishlist", value: String(wishlist.length) },
-        { label: "進度", value: reading[0]?.progress ? String(reading[0].progress) : "—" },
+        { label: "在讀", value: String(liveReading.length) },
+        { label: "wishlist", value: String(liveWishlist.length) },
+        { label: "進度", value: focused.progress ? String(focused.progress) : "—" },
       ],
     });
     return cache ?? [];
   }
 
   if (actionId === "urgent") {
-    const urgent = (cache ?? []).filter(
-      (item) => item.botId === botId && isOpen(item) && item.urgent === true,
+    const items = cache ?? [];
+    const open = items.filter((item) => item.botId === botId && isOpen(item));
+
+    // Most urgent candidate: already-urgent wins (it's the one already
+    // flagged). Otherwise nearest deadline / first open so something
+    // gets marked urgent when the user hasn't flagged anything yet.
+    let candidate = open.find((item) => item.urgent === true) ?? null;
+    if (!candidate) {
+      candidate =
+        open
+          .filter((item) => typeof item.deadline === "string" && item.deadline)
+          .slice()
+          .sort((a, b) => (a.deadline || "").localeCompare(b.deadline || ""))[0] ??
+        null;
+    }
+    if (!candidate) {
+      candidate = open[0] ?? null;
+    }
+
+    if (!candidate) {
+      setFlash({
+        spriteId: botId,
+        kind: "urgent",
+        title: "家居緊急",
+        body: "冇未完成嘅家務。",
+      });
+      return cache ?? [];
+    }
+
+    // Stash the title before updateLocalItem mutates cache (we keep the
+    // reference but the patch re-creates the row, so read fields now).
+    const candidateTitle = candidate.title;
+    const candidateCategory = candidate.category;
+    const candidateVendor = candidate.vendor;
+    const candidateDeadline = candidate.deadline;
+
+    updateLocalItem(candidate.id, {
+      urgent: true,
+      houseStatus: "處理中",
+    });
+
+    const liveOpen = (cache ?? []).filter(
+      (item) => item.botId === botId && isOpen(item),
     );
+    const urgentCount = liveOpen.filter((item) => item.urgent === true).length;
+    const nearest = liveOpen
+      .filter((item) => typeof item.deadline === "string" && item.deadline)
+      .slice()
+      .sort((a, b) => (a.deadline || "").localeCompare(b.deadline || ""))[0];
     setFlash({
       spriteId: botId,
       kind: "urgent",
       title: "家居緊急",
-      body: urgent[0]
-        ? `先處理：${urgent[0].title}（${urgent[0].category || "類別 —"} · 供應商 ${urgent[0].vendor || "—"} · deadline ${urgent[0].deadline || "—"} · 狀態 ${urgent[0].houseStatus || "—"}）`
-        : "冇標成緊急嘅家務。",
+      body: `已標緊急：${candidateTitle}（${candidateCategory || "類別 —"} · 供應商 ${candidateVendor || "—"} · deadline ${candidateDeadline || "—"} · 狀態 處理中）。現共 ${urgentCount} 張緊急，最近 deadline ${nearest?.deadline || "—"}。`,
     });
     return cache ?? [];
   }
 
   if (actionId === "refuel") {
-    addItem({
-      id: "jz-refuel-log",
-      title: "入油紀錄",
-      status: "done",
+    // CRITICAL: use addLocalItem (no fixed id) so the row gets a
+    // local-* id and lives entirely in the overlay. The fixed
+    // jz-refuel-log id path was removed — using it would shadow the
+    // seed jz-* rows on disk and corrupt the desk table on refresh.
+    const created = addLocalItem({
       botId,
-      odo: "43,020 km",
-      station: "加德士黃竹坑",
-      fuelGrade: "98",
-      liters: "36.4",
-      pricePerLiter: "16.9",
-      oilCountdown: "980 km",
-      lPer100: "7.1",
+      title: "入油紀錄",
+      persona: {
+        odo: "43,020 km",
+        station: "加德士黃竹坑",
+        fuelGrade: "98",
+        liters: "36.4",
+        pricePerLiter: "16.9",
+        oilCountdown: "980 km",
+        lPer100: "7.1",
+      },
     });
+
+    if (!created) {
+      setFlash({
+        spriteId: botId,
+        kind: "refuel",
+        title: "入油",
+        body: "入油加唔到。",
+      });
+      return cache ?? [];
+    }
+
+    // glanceChips jazz uses newestOpen ?? newestAny, so even if the new
+    // row was created done, the just-stamped updatedAt would still pick
+    // it. We default to open here for visibility, but the projection
+    // handles both.
     setFlash({
       spriteId: botId,
       kind: "refuel",
       title: "入油",
-      body: "入油已記。站 加德士黃竹坑 · 油號 98 · 36.4 L · $16.9/L。odo 43,020 km · 換油 countdown 980 km · 7.1 L/100。",
+      body: `入油已記。站 ${created.station || "—"} · 油號 ${created.fuelGrade || "—"} · ${created.liters || "—"} L · $${created.pricePerLiter || "—"}/L。odo ${created.odo || "—"} · 換油 countdown ${created.oilCountdown || "—"} · ${created.lPer100 || "—"} L/100。`,
     });
     return cache ?? [];
   }
 
   if (actionId === "garmin") {
-    const live = (cache ?? []).find((item) => item.botId === botId && item.garmin);
+    const items = cache ?? [];
+    const open = items.filter((item) => item.botId === botId && isOpen(item));
+    const sortedOpen = open
+      .slice()
+      .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+    // Fall back to a prior local-* snapshot (open OR done) so the user
+    // keeps building on the same row across clicks instead of littering
+    // the overlay with one-off snapshots.
+    const localPrior = items.find(
+      (item) => typeof item.id === "string" && item.id.startsWith("local-"),
+    );
+    let target = sortedOpen[0] ?? localPrior ?? null;
+
+    // ONLY the four VitalPilot persona fields the spec sanctions —
+    // never invent medical diagnoses, conditions, or stash account
+    // secrets. Stays Traditional Chinese / Cantonese in tone.
+    const nextValues = {
+      garmin: "9,124 步 · 48 分鐘",
+      activity: "Activity Monitor · 港灣圈再一圈",
+      weighIn: "72.3 kg",
+      soberStreak: "13 日",
+    };
+
+    if (target) {
+      updateLocalItem(target.id, nextValues);
+    } else {
+      // No open row, no local prior — create a fresh local-* snapshot.
+      const created = addLocalItem({
+        botId,
+        title: "Garmin snapshot",
+        persona: nextValues,
+      });
+      target = created;
+    }
+
+    if (!target) {
+      setFlash({
+        spriteId: botId,
+        kind: "garmin",
+        title: "Garmin snapshot",
+        body: "只記活動同習慣——唔寫診斷，亦唔存登入資料。",
+      });
+      return cache ?? [];
+    }
+
     setFlash({
       spriteId: botId,
       kind: "garmin",
       title: "Garmin snapshot",
       body: "只記活動同習慣——唔寫診斷，亦唔存登入資料。",
       stats: [
-        { label: "Garmin snapshot", value: String(live?.garmin || "8,432 步 · 42 分鐘") },
-        { label: "活動", value: String(live?.activity || "Activity Monitor · 港灣圈") },
-        { label: "秤重", value: String(live?.weighIn || "72.4 kg") },
-        { label: "戒酒 streak", value: String(live?.soberStreak || "12 日") },
+        { label: "Garmin snapshot", value: String(target.garmin || "—") },
+        { label: "活動", value: String(target.activity || "—") },
+        { label: "秤重", value: String(target.weighIn || "—") },
+        { label: "戒酒 streak", value: String(target.soberStreak || "—") },
       ],
     });
     return cache ?? [];
