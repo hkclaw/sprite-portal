@@ -7,13 +7,29 @@ import {
   completeItem,
   getFlash,
   loadItems,
+  personaFieldsForDue,
+  removeLocalItem,
   restoreSeeds,
   runSpriteAction,
   snoozeFirstOpen,
   snoozeItem,
+  updateLocalItem,
 } from "./store.js";
 import { renderDashboard, renderNotFound, renderSprite, personaAddFieldsHtml } from "./views.js";
 import "./styles.css";
+
+/**
+ * UI-only desk filter, persisted across paint() so chip clicks feel sticky.
+ * Default: 未完成 (open), so first paint of a sprite room shows the working
+ * subset. Seed / overlay / cache are untouched.
+ * @type {"open"|"all"|"done"|"snoozed"}
+ */
+let activeDeskFilter = "open";
+
+/** When set, renderSprite opens the edit form for this item inline. */
+let editingItemId = null;
+
+const VALID_DESK_FILTERS = ["open", "all", "done", "snoozed"];
 
 const app = document.querySelector("#app");
 
@@ -62,6 +78,12 @@ function collectPersonaFromForm(formData, botId) {
 async function paint(pathname) {
   const path = pathname.replace(/\/+$/, "") || "/";
 
+  // Drop the in-flight edit when navigating off a sprite room. Filter is
+  // a UI preference so it survives across navigation.
+  if (!path.startsWith("/sprites/")) {
+    editingItemId = null;
+  }
+
   if (path === "/") {
     const items = await loadItems();
     app.innerHTML = renderDashboard(items);
@@ -83,6 +105,7 @@ async function paint(pathname) {
       items,
       flash && flash.spriteId === sprite.id ? flash : null,
       allItems,
+      { deskFilter: activeDeskFilter, editingId: editingItemId },
     );
     return;
   }
@@ -115,7 +138,42 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  if (action === "desk-filter") {
+    const filter = button.getAttribute("data-filter");
+    if (filter && VALID_DESK_FILTERS.includes(filter)) {
+      activeDeskFilter = /** @type {"open"|"all"|"done"|"snoozed"} */ (filter);
+    }
+    await paint(path);
+    return;
+  }
+
+  if (action === "edit-item" && itemId) {
+    editingItemId = itemId;
+    await paint(path);
+    return;
+  }
+
+  if (action === "cancel-edit") {
+    editingItemId = null;
+    await paint(path);
+    return;
+  }
+
+  if (action === "delete-item" && itemId) {
+    if (!itemId.startsWith("local-")) {
+      showToast("種子項目唔可以刪除");
+      return;
+    }
+    if (!window.confirm("確定刪除呢張本地事項？")) return;
+    if (editingItemId === itemId) editingItemId = null;
+    removeLocalItem(itemId);
+    await paint(path);
+    showToast("已刪除");
+    return;
+  }
+
   if (action === "complete" && itemId) {
+    if (editingItemId === itemId) editingItemId = null;
     completeItem(itemId);
     await paint(path);
     showToast("完成");
@@ -123,6 +181,7 @@ document.addEventListener("click", async (event) => {
   }
 
   if (action === "snooze" && itemId) {
+    if (editingItemId === itemId) editingItemId = null;
     snoozeItem(itemId);
     await paint(path);
     showToast("延後");
@@ -156,34 +215,99 @@ document.addEventListener("click", async (event) => {
 document.addEventListener("submit", async (event) => {
   const form = event.target;
   if (!(form instanceof HTMLFormElement)) return;
-  if (form.getAttribute("data-action") !== "add-item") return;
+  const formAction = form.getAttribute("data-action");
+  if (formAction !== "add-item" && formAction !== "save-edit") return;
 
   event.preventDefault();
-
-  const formData = new FormData(form);
-  const title = String(formData.get("title") || "").trim();
-  const due = String(formData.get("due") || "").trim();
-  const botId = String(formData.get("botId") || "").trim();
-
-  if (!title) {
-    showToast("標題唔可以空白");
-    return;
-  }
-  if (!botId) {
-    showToast("揀個精靈先");
-    return;
-  }
-
-  const persona = collectPersonaFromForm(formData, botId);
-  const created = addLocalItem({ botId, title, due, persona });
-  if (!created) {
-    showToast("加唔到，試多次");
-    return;
-  }
-
   const path = location.pathname.replace(/\/+$/, "") || "/";
-  await paint(path);
-  showToast("已加事項");
+
+  if (formAction === "add-item") {
+    const formData = new FormData(form);
+    const title = String(formData.get("title") || "").trim();
+    const due = String(formData.get("due") || "").trim();
+    const botId = String(formData.get("botId") || "").trim();
+
+    if (!title) {
+      showToast("標題唔可以空白");
+      return;
+    }
+    if (!botId) {
+      showToast("揀個精靈先");
+      return;
+    }
+
+    const persona = collectPersonaFromForm(formData, botId);
+    const created = addLocalItem({ botId, title, due, persona });
+    if (!created) {
+      showToast("加唔到，試多次");
+      return;
+    }
+
+    await paint(path);
+    showToast("已加事項");
+    return;
+  }
+
+  if (formAction === "save-edit") {
+    const itemId = String(form.getAttribute("data-item-id") || "");
+    if (!itemId) return;
+
+    const formData = new FormData(form);
+    const title = String(formData.get("title") || "").trim();
+    const due = String(formData.get("due") || "").trim();
+
+    if (!title) {
+      showToast("標題唔可以空白");
+      return;
+    }
+
+    const items = await loadItems();
+    const item = items.find((entry) => entry.id === itemId);
+    if (!item) {
+      editingItemId = null;
+      showToast("事項唔存在");
+      await paint(path);
+      return;
+    }
+
+    const persona = collectPersonaFromForm(formData, item.botId);
+    const duePersona = personaFieldsForDue(item.botId, due);
+
+    /**
+     * When the user clears 到期 on the edit form, personaFieldsForDue
+     * returns `{}` and the old mapped value would silently stick around
+     * in the overlay. Null out the same key personaFieldsForDue would
+     * have written, so the rendered row stops surfacing a stale date.
+     * Mirrors personaFieldsForDue's bot-specific mapping.
+     */
+    /** @type {Record<string, unknown>} */
+    const dueClears = {};
+    if (!due) {
+      if (item.botId === "jacob") dueClears.due = null;
+      else if (item.botId === "english-edge") dueClears.nextClass = null;
+      else if (item.botId === "homepilot") dueClears.deadline = null;
+    }
+
+    /**
+     * Edit patch = title + due-mapped persona + persona fields the user
+     * actually touched. Anything in addFormFieldsFor that isn't present
+     * here means the user cleared it (or left it untouched, which still
+     * overrides via the rendered prefill) — set null so asItem drops the
+     * key from both overlay and cache.
+     * @type {Record<string, unknown>}
+     */
+    const finalPatch = { title, ...duePersona, ...dueClears, ...persona };
+    for (const field of addFormFieldsFor(item.botId)) {
+      if (!(field.key in finalPatch)) {
+        finalPatch[field.key] = null;
+      }
+    }
+
+    updateLocalItem(itemId, finalPatch);
+    editingItemId = null;
+    await paint(path);
+    showToast("已更新");
+  }
 });
 
 // When the Dashboard 精靈 select changes, swap the persona fields in place.

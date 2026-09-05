@@ -64,12 +64,167 @@ function shell(content, activePath, items = []) {
 }
 
 function itemActions(item) {
-  if (item.status !== "open") return "";
+  const buttons = [];
+  if (item.status === "open") {
+    buttons.push(
+      `<button type="button" class="btn btn-complete" data-action="complete" data-item-id="${escapeAttr(item.id)}">完成</button>`,
+    );
+    buttons.push(
+      `<button type="button" class="btn btn-snooze" data-action="snooze" data-item-id="${escapeAttr(item.id)}">延後</button>`,
+    );
+  }
+  buttons.push(
+    `<button type="button" class="btn btn-edit" data-action="edit-item" data-item-id="${escapeAttr(item.id)}">編輯</button>`,
+  );
+  if (typeof item.id === "string" && item.id.startsWith("local-")) {
+    buttons.push(
+      `<button type="button" class="btn btn-delete" data-action="delete-item" data-item-id="${escapeAttr(item.id)}">刪除</button>`,
+    );
+  }
+  if (!buttons.length) return "";
+  return `<div class="item-actions">${buttons.join("")}</div>`;
+}
+
+function deskFilterLabel(filter) {
+  if (filter === "open") return "未完成";
+  if (filter === "done") return "完成";
+  if (filter === "snoozed") return "延後";
+  return "";
+}
+
+/**
+ * Desk-status filter chips. UI-only: caller filters the rendered list, the
+ * overlay / cache / seeds are never touched. Module-level state in main.js
+ * keeps the active filter across paint() so chip clicks feel sticky.
+ * @param {"open"|"all"|"done"|"snoozed"} active
+ */
+function deskFilterChipsHtml(active) {
+  const chips = [
+    { value: "open", label: "未完成" },
+    { value: "all", label: "全部" },
+    { value: "done", label: "完成" },
+    { value: "snoozed", label: "延後" },
+  ];
   return `
-    <div class="item-actions">
-      <button type="button" class="btn btn-complete" data-action="complete" data-item-id="${escapeAttr(item.id)}">完成</button>
-      <button type="button" class="btn btn-snooze" data-action="snooze" data-item-id="${escapeAttr(item.id)}">延後</button>
+    <div class="desk-filter" role="group" aria-label="書枱狀態篩選">
+      ${chips
+        .map((chip) => {
+          const isActive = chip.value === active;
+          return `<button type="button" class="desk-filter-chip${isActive ? " is-active" : ""}" data-action="desk-filter" data-filter="${escapeAttr(chip.value)}" aria-pressed="${isActive ? "true" : "false"}">${escapeHtml(chip.label)}</button>`;
+        })
+        .join("")}
     </div>
+  `;
+}
+
+/**
+ * Empty desk vibe, filter-aware so it tells the user which slice is empty.
+ * @param {import("./sprites.js").Sprite} sprite
+ * @param {"open"|"all"|"done"|"snoozed"} filter
+ */
+function deskEmptyHtml(sprite, filter) {
+  const label = deskFilterLabel(filter);
+  const title = filter === "all" ? "書枱清空咗" : `冇${label}卡片`;
+  const sub =
+    filter === "all"
+      ? `而家未有 <strong>${sprite.name}</strong> 嘅卡片。`
+      : `而家冇 <strong>${label}</strong> 嘅卡片，揀其他篩選或者加新嘅。`;
+  return `
+    <div class="empty-desk">
+      <div class="row-avatar" aria-hidden="true">${spriteFigure(sprite, "xs")}</div>
+      <h3 class="empty-title">${escapeHtml(title)}</h3>
+      <p class="empty-sub">${sub}</p>
+    </div>
+  `;
+}
+
+/** Render a single persona field, prefilled with the current item value. */
+function editPersonaFieldHtml(field, item) {
+  const currentValue = item[field.key];
+  if (field.kind === "checkbox") {
+    const checked = currentValue === true ? "checked" : "";
+    return `
+      <label class="add-item-field add-item-check">
+        <input type="checkbox" name="persona.${escapeAttr(field.key)}" value="true" ${checked} />
+        <span>${escapeHtml(field.label)}</span>
+      </label>
+    `;
+  }
+  if (field.kind === "select") {
+    const opts = (field.options ?? [])
+      .map((opt) => {
+        const sel = opt.value === currentValue ? "selected" : "";
+        return `<option value="${escapeAttr(opt.value)}" ${sel}>${escapeHtml(opt.label)}</option>`;
+      })
+      .join("");
+    return `
+      <label class="add-item-field">
+        <span>${escapeHtml(field.label)}</span>
+        <select name="persona.${escapeAttr(field.key)}" class="add-item-select">
+          <option value="">—</option>${opts}
+        </select>
+      </label>
+    `;
+  }
+  const value = typeof currentValue === "string" ? escapeAttr(currentValue) : "";
+  return `
+    <label class="add-item-field">
+      <span>${escapeHtml(field.label)}</span>
+      <input type="text" name="persona.${escapeAttr(field.key)}" class="add-item-input" maxlength="120" value="${value}" />
+    </label>
+  `;
+}
+
+/**
+ * Mirror `personaFieldsForDue` in reverse: pick the persona field that
+ * actually holds the date for this bot so the 到期 date input prefill is
+ * honest. english-edge's `nextClass` carries extra notes after the date
+ * (e.g. "2026-09-08 咖啡店點餐"), so we slice to the first 10 chars —
+ * anything else won't fit a `<input type="date">` and would just blank out.
+ * @param {import("./schema.js").SpriteItem} item
+ */
+function duePrefillValue(item) {
+  let raw;
+  if (item.botId === "english-edge") {
+    raw = item.nextClass;
+  } else if (item.botId === "homepilot") {
+    raw = item.deadline;
+  } else {
+    raw = item.due;
+  }
+  if (typeof raw !== "string") return "";
+  return item.botId === "english-edge" ? raw.slice(0, 10) : raw;
+}
+
+/**
+ * Inline edit form for a single item: title + due + the room's persona
+ * fields, prefilled. Submitted via data-action="save-edit". Cancelled via
+ * data-action="cancel-edit". No mutation happens until submit.
+ * @param {import("./schema.js").SpriteItem} item
+ * @param {string} botId
+ */
+function editFormHtml(item, botId) {
+  const fields = addFormFieldsFor(botId);
+  const personaHtml = fields.map((field) => editPersonaFieldHtml(field, item)).join("");
+  const dueValue = escapeAttr(duePrefillValue(item));
+  return `
+    <form class="edit-item-form" data-action="save-edit" data-item-id="${escapeAttr(item.id)}" autocomplete="off">
+      <div class="edit-item-fields">
+        <label class="add-item-field">
+          <span>標題</span>
+          <input type="text" name="title" class="add-item-input" required maxlength="120" value="${escapeAttr(item.title || "")}" />
+        </label>
+        <label class="add-item-field">
+          <span>到期</span>
+          <input type="date" name="due" class="add-item-date" value="${dueValue}" />
+        </label>
+        ${fields.length ? `<div class="add-item-persona-fields">${personaHtml}</div>` : ""}
+      </div>
+      <div class="edit-item-actions">
+        <button type="button" class="btn" data-action="cancel-edit">取消</button>
+        <button type="submit" class="btn btn-primary">儲存</button>
+      </div>
+    </form>
   `;
 }
 
@@ -82,7 +237,7 @@ function formatFieldValue(field, value) {
   return String(value);
 }
 
-function deskTable(items, botId) {
+function deskTable(items, botId, editingId = null) {
   const fields = fieldKitFor(botId);
   if (!items.length) return "";
   const head = `
@@ -96,7 +251,7 @@ function deskTable(items, botId) {
   const body = items
     .map((item) => {
       const accent = item.urgent === true || item.priority === "high" || item.when === "Overdue" ? "is-alert" : "";
-      return `
+      const row = `
         <tr class="status-${item.status} ${accent}">
           <td class="cell-title">${escapeHtml(item.title || "無標題")}</td>
           <td><span class="chip">${statusLabel(item.status)}</span></td>
@@ -106,6 +261,15 @@ function deskTable(items, botId) {
           <td class="cell-actions">${itemActions(item)}</td>
         </tr>
       `;
+      if (editingId && item.id === editingId) {
+        const cols = 3 + fields.length;
+        return row + `
+          <tr class="edit-row">
+            <td colspan="${cols}">${editFormHtml(item, botId)}</td>
+          </tr>
+        `;
+      }
+      return row;
     })
     .join("");
   return `<div class="table-wrap"><table class="desk-table">${head}${body}</table></div>`;
@@ -414,7 +578,9 @@ export function renderDashboard(items) {
   );
 }
 
-export function renderSprite(sprite, items, flash, allItems = items) {
+export function renderSprite(sprite, items, flash, allItems = items, opts = {}) {
+  const deskFilter = opts.deskFilter ?? "open";
+  const editingId = opts.editingId ?? null;
   const openCount = items.filter((item) => item.status === "open").length;
   const ordered = items.slice().sort((a, b) => {
     const rank = { open: 0, snoozed: 1, done: 2 };
@@ -423,15 +589,13 @@ export function renderSprite(sprite, items, flash, allItems = items) {
     return (b.updatedAt || "").localeCompare(a.updatedAt || "");
   });
 
-  const list = ordered.length
-    ? deskTable(ordered, sprite.id)
-    : `
-      <div class="empty-desk">
-        <div class="row-avatar" aria-hidden="true">${spriteFigure(sprite, "xs")}</div>
-        <h3 class="empty-title">書枱清空咗</h3>
-        <p class="empty-sub">而家未有 <strong>${sprite.name}</strong> 嘅卡片，可以開新卡。</p>
-      </div>
-    `;
+  const filtered = deskFilter === "all"
+    ? ordered
+    : ordered.filter((item) => item.status === deskFilter);
+
+  const list = filtered.length
+    ? deskTable(filtered, sprite.id, editingId)
+    : deskEmptyHtml(sprite, deskFilter);
 
   const primary = (sprite.actions ?? [])
     .map(
@@ -480,6 +644,7 @@ export function renderSprite(sprite, items, flash, allItems = items) {
               `<span class="kit-label">${escapeHtml(field.label)}${field.hint ? ` <small>${escapeHtml(field.hint)}</small>` : ""}</span>`,
           )
           .join("")}</p>
+        ${deskFilterChipsHtml(deskFilter)}
         ${list}
       </section>
       <p class="desk-foot">狀態：未完成／完成／延後。共用掣：${SHARED_ACTIONS.map((action) => action.label).join("／")}。</p>

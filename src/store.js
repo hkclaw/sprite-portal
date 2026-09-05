@@ -229,10 +229,11 @@ export function snoozeFirstOpen(botId) {
 /**
  * Map optional due date onto persona-specific fields without changing the schema.
  * Returns a partial of persona fields to merge into the new item.
+ * Exported so the edit-item form can apply the same mapping on update.
  * @param {string} botId
  * @param {string} due
  */
-function personaFieldsForDue(botId, due) {
+export function personaFieldsForDue(botId, due) {
   if (!due) return {};
   /** @type {Record<string, unknown>} */
   const out = {};
@@ -298,6 +299,101 @@ function cleanPersonaFields(raw) {
     out[key] = value;
   }
   return out;
+}
+
+/**
+ * Patch overlay[id] with the given partial fields. null values are KEPT in
+ * the overlay (not deleted) so the seed item's persona keys are explicitly
+ * cleared on next mergeSeed (asItem ignores null, removing the field from
+ * the result). Caller decides which keys to send.
+ * @param {string} id
+ * @param {Record<string, unknown>} patch
+ * @returns {Record<string, unknown> | null}
+ */
+function writeOverlayForUpdate(id, patch) {
+  if (!id || !patch) return null;
+  try {
+    const overlay = readOverlay();
+    const prev = overlay[id] ?? {};
+    const next = { ...prev, ...patch, updatedAt: nowIso() };
+    overlay[id] = next;
+    localStorage.setItem(OVERLAY_KEY, JSON.stringify(overlay));
+    return next;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Patch a single item in-place: title + persona fields. Field-level nulls
+ * clear that key from the overlay (so it no longer surfaces on merge) and
+ * from the cache entry (so the rendered row stops showing it). Seed items
+ * survive restore-seeds; only their overlay partials are cleared.
+ * @param {string} id
+ * @param {Record<string, unknown>} patch
+ * @returns {import("./schema.js").SpriteItem | null}
+ */
+export function updateLocalItem(id, patch) {
+  if (!id) return null;
+  const items = cache ?? [];
+  const existing = items.find((item) => item.id === id);
+  if (!existing) return null;
+
+  const stored = writeOverlayForUpdate(id, patch);
+  if (!stored) return null;
+
+  /** @type {Record<string, unknown>} */
+  const next = { ...existing };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === null || value === undefined) {
+      delete next[key];
+    } else {
+      next[key] = value;
+    }
+  }
+  next.updatedAt = stored.updatedAt;
+  const finalItem = asItem(next);
+  cache = items.map((item) => (item.id === id ? finalItem : item));
+
+  setFlash({
+    spriteId: existing.botId,
+    kind: "edit",
+    title: "已更新",
+    body: `「${finalItem.title}」已更新。`,
+  });
+  return finalItem;
+}
+
+/**
+ * Delete a local-only item entirely from overlay + cache. Local items live
+ * only in the overlay, so dropping the id removes them from both the next
+ * load and the current render. Seed items are refused — they survive in
+ * items.json and should be hidden, not deleted.
+ * @param {string} id
+ * @returns {boolean}
+ */
+export function removeLocalItem(id) {
+  if (!id || !id.startsWith("local-")) return false;
+  const items = cache ?? [];
+  const existing = items.find((item) => item.id === id);
+  if (!existing) return false;
+
+  try {
+    const overlay = readOverlay();
+    delete overlay[id];
+    localStorage.setItem(OVERLAY_KEY, JSON.stringify(overlay));
+  } catch {
+    /* ignore */
+  }
+  cache = items.filter((item) => item.id !== id);
+
+  setFlash({
+    spriteId: existing.botId,
+    kind: "delete",
+    title: "已刪除",
+    body: `「${existing.title}」已刪除。`,
+  });
+  return true;
 }
 
 /**

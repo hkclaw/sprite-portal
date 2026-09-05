@@ -777,3 +777,75 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   outline: none;
   box-shadow: 0 0 0 2px rgba(20, 143, 138, 0.22);
 }
+
+/* --- Desk status filter chips (Notion-ish, above the table) --- */
+.desk-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.desk-filter-chip {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 99px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.desk-filter-chip:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.desk-filter-chip.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+/* --- Inline edit form (opens under a desk row) --- */
+.desk-table tr.edit-row td {
+  background: var(--hover);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.edit-item-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.edit-item-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 12px;
+}
+
+.edit-item-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* --- Local-only destructive control --- */
+.btn-delete {
+  color: #8a1f17;
+  border-color: #f5c4be;
+  background: #fff5f3;
+}
+
+.btn-delete:hover {
+  background: #ffe8e3;
+  border-color: #c8403a;
+  color: #8a1f17;
+}
