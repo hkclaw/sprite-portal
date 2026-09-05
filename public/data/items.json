@@ -1,1 +1,217 @@
-[]
+[
+  {
+    "id": "jb-1",
+    "title": "Triage this week’s crew notes",
+    "status": "open",
+    "botId": "jacob",
+    "due": "2026-09-06",
+    "tags": ["inbox", "crew"],
+    "notes": "Skim the six desks and star anything that still needs a human.",
+    "priority": "high",
+    "updatedAt": "2026-09-05T08:10:00Z"
+  },
+  {
+    "id": "jb-2",
+    "title": "Draft a weekend stretch plan",
+    "status": "open",
+    "botId": "jacob",
+    "due": "2026-09-07",
+    "tags": ["planning"],
+    "notes": "Keep it light: one outing, one quiet block, one errand window.",
+    "priority": "normal",
+    "updatedAt": "2026-09-05T07:40:00Z"
+  },
+  {
+    "id": "jb-3",
+    "title": "Polish the portal copy pass",
+    "status": "open",
+    "botId": "jacob",
+    "due": "2026-09-08",
+    "tags": ["portal"],
+    "notes": "Shorten the dashboard lede and keep sprite names consistent.",
+    "priority": "low",
+    "updatedAt": "2026-09-04T16:20:00Z"
+  },
+  {
+    "id": "jb-4",
+    "title": "Archive last month’s done pile",
+    "status": "done",
+    "botId": "jacob",
+    "tags": ["inbox"],
+    "notes": "Cleared the stale cards so the hopper can breathe.",
+    "priority": "low",
+    "updatedAt": "2026-09-03T11:00:00Z"
+  },
+  {
+    "id": "ee-1",
+    "title": "Prep Tuesday conversation class",
+    "status": "open",
+    "botId": "english-edge",
+    "due": "2026-09-08",
+    "tags": ["課堂", "speaking"],
+    "notes": "Café-order role play. Target: I'd like… / Could I have…",
+    "priority": "high",
+    "updatedAt": "2026-09-05T09:05:00Z"
+  },
+  {
+    "id": "ee-2",
+    "title": "Mark the homework sentence set",
+    "status": "open",
+    "botId": "english-edge",
+    "due": "2026-09-06",
+    "tags": ["homework"],
+    "notes": "Twelve short replies. Circle tense slips, leave one nicer rewrite.",
+    "priority": "normal",
+    "updatedAt": "2026-09-04T18:30:00Z"
+  },
+  {
+    "id": "ee-3",
+    "title": "Collect phrasal verbs for Friday quiz",
+    "status": "snoozed",
+    "botId": "english-edge",
+    "due": "2026-09-11",
+    "tags": ["quiz"],
+    "notes": "Pick eight everyday ones. No trick questions.",
+    "priority": "low",
+    "updatedAt": "2026-09-03T14:12:00Z"
+  },
+  {
+    "id": "cm-1",
+    "title": "Outline chapter 4 beats",
+    "status": "open",
+    "botId": "chaptermind",
+    "due": "2026-09-07",
+    "tags": ["進度", "north-station"],
+    "notes": "Station arrival, the missed train, the note on the bench.",
+    "priority": "high",
+    "updatedAt": "2026-09-05T06:55:00Z"
+  },
+  {
+    "id": "cm-2",
+    "title": "Tag loose plot threads",
+    "status": "open",
+    "botId": "chaptermind",
+    "due": "2026-09-09",
+    "tags": ["threads"],
+    "notes": "Who still owes a reply from chapter 2? Keep a one-line list.",
+    "priority": "normal",
+    "updatedAt": "2026-09-04T21:10:00Z"
+  },
+  {
+    "id": "cm-3",
+    "title": "File the harbor outline scrap",
+    "status": "done",
+    "botId": "chaptermind",
+    "tags": ["harbor-notes"],
+    "notes": "Moved the paper stack into the chapter folder.",
+    "priority": "low",
+    "updatedAt": "2026-09-02T15:40:00Z"
+  },
+  {
+    "id": "hp-1",
+    "title": "Water the balcony plants",
+    "status": "open",
+    "botId": "homepilot",
+    "due": "2026-09-05",
+    "tags": ["plants", "緊急"],
+    "notes": "The herbs look thirsty. Evening water, not midday.",
+    "priority": "high",
+    "updatedAt": "2026-09-05T02:20:00Z"
+  },
+  {
+    "id": "hp-2",
+    "title": "Buy dish soap on the way home",
+    "status": "open",
+    "botId": "homepilot",
+    "due": "2026-09-06",
+    "tags": ["errand"],
+    "notes": "Any unscented bottle is fine. Skip the giant refill this week.",
+    "priority": "normal",
+    "updatedAt": "2026-09-04T12:00:00Z"
+  },
+  {
+    "id": "hp-3",
+    "title": "Sort recycling tonight",
+    "status": "open",
+    "botId": "homepilot",
+    "due": "2026-09-05",
+    "tags": ["chores"],
+    "notes": "Flatten boxes. Glass in the crate by the door.",
+    "priority": "normal",
+    "updatedAt": "2026-09-05T03:15:00Z"
+  },
+  {
+    "id": "hp-4",
+    "title": "Wipe the kitchen counter",
+    "status": "done",
+    "botId": "homepilot",
+    "tags": ["chores"],
+    "notes": "Done after dinner yesterday.",
+    "priority": "low",
+    "updatedAt": "2026-09-04T13:45:00Z"
+  },
+  {
+    "id": "jz-1",
+    "title": "Fill up before the night drive",
+    "status": "open",
+    "botId": "jazz",
+    "due": "2026-09-05",
+    "tags": ["入油"],
+    "notes": "Half a tank left. Top up on the way to the set.",
+    "priority": "high",
+    "updatedAt": "2026-09-05T04:05:00Z"
+  },
+  {
+    "id": "jz-2",
+    "title": "Cue Friday playlist",
+    "status": "open",
+    "botId": "jazz",
+    "due": "2026-09-05",
+    "tags": ["playlist"],
+    "notes": "Open with a slow quartet, then swing. Keep it under ninety minutes.",
+    "priority": "normal",
+    "updatedAt": "2026-09-04T22:18:00Z"
+  },
+  {
+    "id": "jz-3",
+    "title": "Check the weekend gig calendar",
+    "status": "done",
+    "botId": "jazz",
+    "tags": ["gigs"],
+    "notes": "Saturday is free. Sunday brunch set is penciled only.",
+    "priority": "low",
+    "updatedAt": "2026-09-03T09:30:00Z"
+  },
+  {
+    "id": "vp-1",
+    "title": "Log this morning’s walk",
+    "status": "open",
+    "botId": "vitalpilot",
+    "due": "2026-09-05",
+    "tags": ["walk", "garmin"],
+    "notes": "Harbor loop, easy pace. Snapshot the week after dinner.",
+    "priority": "normal",
+    "updatedAt": "2026-09-05T01:10:00Z"
+  },
+  {
+    "id": "vp-2",
+    "title": "Evening stretch after desk time",
+    "status": "open",
+    "botId": "vitalpilot",
+    "due": "2026-09-05",
+    "tags": ["stretch"],
+    "notes": "Ten minutes, shoulders and hips. No heroics.",
+    "priority": "normal",
+    "updatedAt": "2026-09-04T23:40:00Z"
+  },
+  {
+    "id": "vp-3",
+    "title": "Pin last week’s Garmin snapshot",
+    "status": "done",
+    "botId": "vitalpilot",
+    "tags": ["garmin"],
+    "notes": "Steps were steady. Keep the evening stroll.",
+    "priority": "low",
+    "updatedAt": "2026-09-01T10:00:00Z"
+  }
+]

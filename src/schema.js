@@ -1,48 +1,68 @@
 /**
- * Shared item schema (V1 stub)
- *
- * Every bot-handled unit of work should eventually look like:
+ * Shared item schema
  *
  * {
- *   title: string,      // short label for the work item
- *   status: string,     // e.g. "inbox" | "open" | "waiting" | "done"
- *   botId: string,      // sprite id that owns the item
- *   due: string | null, // ISO-8601 date, or null if undated
- *   tags: string[],     // freeform labels
- *   notes: string       // longer context the sprite left behind
+ *   id: string,
+ *   title: string,
+ *   status: "open" | "done" | "snoozed",
+ *   botId: string,
+ *   due?: string,          // ISO-8601 date
+ *   tags: string[],
+ *   notes?: string,
+ *   priority?: string,     // "low" | "normal" | "high"
+ *   updatedAt: string      // ISO-8601 datetime
  * }
  *
- * Local JSON (`/data/items.json`) is enough for this shell.
- * Later rounds can swap in SQLite without changing this shape.
+ * Local JSON (`/data/items.json`) is the seed. The store may overlay
+ * in-session edits (complete / snooze / sprite actions) on top.
  */
 
-export const ITEM_STATUSES = ["inbox", "open", "waiting", "done"];
+export const ITEM_STATUSES = ["open", "done", "snoozed"];
 
-export const ITEM_FIELDS = ["title", "status", "botId", "due", "tags", "notes"];
+export const ITEM_FIELDS = [
+  "id",
+  "title",
+  "status",
+  "botId",
+  "due",
+  "tags",
+  "notes",
+  "priority",
+  "updatedAt",
+];
 
 /** @typedef {{
+ *   id: string,
  *   title: string,
- *   status: string,
+ *   status: "open" | "done" | "snoozed",
  *   botId: string,
- *   due: string | null,
+ *   due?: string,
  *   tags: string[],
- *   notes: string
+ *   notes?: string,
+ *   priority?: string,
+ *   updatedAt: string
  * }} SpriteItem
  */
 
 /**
- * Normalize a raw record toward the shared stub.
- * Missing fields stay visible so the empty shell can still render.
  * @param {Partial<SpriteItem> & Record<string, unknown>} raw
  * @returns {SpriteItem}
  */
 export function asItem(raw = {}) {
+  const status = ITEM_STATUSES.includes(raw.status) ? raw.status : "open";
   return {
+    id: typeof raw.id === "string" && raw.id ? raw.id : "",
     title: typeof raw.title === "string" ? raw.title : "",
-    status: typeof raw.status === "string" ? raw.status : "inbox",
+    status,
     botId: typeof raw.botId === "string" ? raw.botId : "",
-    due: typeof raw.due === "string" ? raw.due : null,
+    due: typeof raw.due === "string" ? raw.due : undefined,
     tags: Array.isArray(raw.tags) ? raw.tags.map(String) : [],
-    notes: typeof raw.notes === "string" ? raw.notes : "",
+    notes: typeof raw.notes === "string" ? raw.notes : undefined,
+    priority: typeof raw.priority === "string" ? raw.priority : undefined,
+    updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : "",
   };
+}
+
+export function isOpen(item) {
+  return item.status === "open";
 }

@@ -2,7 +2,7 @@
 
 Local web app for the items Jacob’s Grok bots handle. Each bot is a lively little sprite assistant — a nursery, not a spreadsheet.
 
-This is the **V1 shell**: a dashboard, six sprite rooms, a shared item schema stub, and a playful theme. Personas and real work items come later.
+Dashboard plus six branded sprite rooms, local mock desks, and mock primary actions. Each sprite keeps its own colors — Jacob teal+amber, English Edge coral+cream, ChapterMind ink/paper+sage, HomePilot wood, Jazz Bot jazz blue, VitalPilot forest `#2D6A4F`.
 
 ## Run on localhost
 
@@ -24,29 +24,29 @@ Then open [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
 | Surface | What you get |
 | --- | --- |
-| Dashboard | Empty todo hopper + sprite overview cards |
-| Six sprite routes | Placeholder persona copy and an empty desk |
-| Theme | Soft motion, candy colors, CSS sprite creatures |
-| Data | Local JSON at `public/data/items.json` (empty for now) |
+| Dashboard | Open counts + hopper from local mock items |
+| Six sprite routes | Brand room, sample desk, 完成／延後 plus a sprite primary action |
+| Theme | Per-sprite brand colors (not a shared candy palette) |
+| Data | Local JSON at `public/data/items.json` |
 
 ## Shared item schema (stub)
 
 Every future work item should look like this:
 
 ```js
-{ title, status, botId, due, tags, notes }
+{ id, title, status /* open|done|snoozed */, botId, due?, tags[], notes?, priority?, updatedAt }
 ```
 
 See `src/schema.js` for field notes. JSON is enough for this shell; SQLite can replace the store later without changing the shape.
 
 ## Sprites
 
-- **Jacob Bot** — crew conductor
-- **English Edge** — wordsmith
-- **ChapterMind** — story threads
-- **HomePilot** — house rhythms
-- **Jazz Bot** — late-night riffs
-- **VitalPilot** — pulse checks
+- **Jacob Bot** — teal + amber
+- **English Edge** — coral + cream · 課堂
+- **ChapterMind** — ink / paper + sage · 進度
+- **HomePilot** — wood tones · 緊急
+- **Jazz Bot** — jazz blue · 入油
+- **VitalPilot** — forest green `#2D6A4F` · Garmin snapshot
 
 ## Notes
 

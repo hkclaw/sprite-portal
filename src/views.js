@@ -1,5 +1,6 @@
 import { ITEM_FIELDS } from "./schema.js";
-import { SPRITES } from "./sprites.js";
+import { SHARED_ACTIONS, SPRITES } from "./sprites.js";
+import { openCountFor, openItems } from "./store.js";
 
 function spriteFigure(sprite, size = "md") {
   return `
@@ -53,36 +54,106 @@ function shell(content, activePath) {
       <nav class="sprite-rail" aria-label="Sprites">${nav}</nav>
     </header>
     <main class="stage">${content}</main>
+    <div class="toast" id="toast" hidden></div>
+  `;
+}
+
+function statusLabel(status) {
+  if (status === "done") return "done";
+  if (status === "snoozed") return "snoozed";
+  return "open";
+}
+
+function itemActions(item) {
+  if (item.status !== "open") return "";
+  return `
+    <div class="item-actions">
+      <button type="button" class="btn btn-complete" data-action="complete" data-item-id="${escapeAttr(item.id)}">完成</button>
+      <button type="button" class="btn btn-snooze" data-action="snooze" data-item-id="${escapeAttr(item.id)}">延後</button>
+    </div>
+  `;
+}
+
+function itemCard(item, spriteName) {
+  const due = item.due ? `due ${item.due}` : "no due date";
+  const tags = (item.tags ?? []).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
+  const notes = item.notes ? `<p>${escapeHtml(item.notes)}</p>` : "";
+  const who = spriteName ? `<span class="item-who">${escapeHtml(spriteName)}</span>` : "";
+  return `
+    <li class="item-card status-${item.status} priority-${item.priority || "normal"}">
+      <div class="item-top">
+        <h3>${escapeHtml(item.title || "Untitled")}</h3>
+        <span class="chip status-chip">${statusLabel(item.status)}</span>
+      </div>
+      <p class="muted">${who}${who ? " · " : ""}${escapeHtml(item.status)} · ${escapeHtml(due)}${item.priority ? ` · ${escapeHtml(item.priority)}` : ""}</p>
+      ${notes}
+      <div class="tag-row">${tags}</div>
+      ${itemActions(item)}
+    </li>
+  `;
+}
+
+function flashPanel(flash) {
+  if (!flash) return "";
+  const stats = (flash.stats ?? [])
+    .map((stat) => `<div class="stat"><span>${escapeHtml(stat.label)}</span><strong>${escapeHtml(stat.value)}</strong></div>`)
+    .join("");
+  return `
+    <section class="flash-panel kind-${escapeAttr(flash.kind || "note")}" data-flash>
+      <p class="eyebrow">${escapeHtml(flash.title || "Update")}</p>
+      <p>${escapeHtml(flash.body || "")}</p>
+      ${stats ? `<div class="stat-row">${stats}</div>` : ""}
+    </section>
   `;
 }
 
 export function renderDashboard(items) {
-  const cards = SPRITES.map(
-    (sprite, index) => `
+  const open = openItems(items);
+  const cards = SPRITES.map((sprite, index) => {
+    const count = openCountFor(sprite.id, items);
+    return `
       <a class="sprite-card accent-${sprite.accent}" href="${sprite.path}" data-link style="--delay:${index * 70}ms">
         ${spriteFigure(sprite, "md")}
         <div class="card-copy">
           <h2>${sprite.name}</h2>
           <p>${sprite.tagline}</p>
-          <span class="chip">0 items</span>
+          <span class="chip open-count">${count} open</span>
         </div>
       </a>
-    `,
-  ).join("");
+    `;
+  }).join("");
 
-  const emptyTodos = `
-    <section class="todo-dock empty-dock">
+  const hopperItems = open
+    .slice()
+    .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))
+    .slice(0, 8);
+  const nameById = Object.fromEntries(SPRITES.map((sprite) => [sprite.id, sprite.name]));
+
+  const hopper = `
+    <section class="todo-dock">
       <div class="dock-sprite" aria-hidden="true">
-        <div class="sleepy-tray">
-          <span class="zzz z1">z</span>
-          <span class="zzz z2">z</span>
-          <span class="zzz z3">z</span>
+        <div class="sleepy-tray live-tray">
+          <span class="zzz z1">!</span>
+          <span class="zzz z2">•</span>
         </div>
       </div>
-      <div>
+      <div class="dock-copy">
         <h2>Todo hopper</h2>
-        <p>Nothing in the tray yet. When a sprite hands you work, items land here with <code>title</code>, <code>status</code>, <code>botId</code>, <code>due</code>, <code>tags</code>, and <code>notes</code>.</p>
-        <p class="muted">${items.length} stored item${items.length === 1 ? "" : "s"} in local JSON.</p>
+        <p>${open.length} open across the crew. Local JSON desks — complete or snooze from a sprite room.</p>
+        <ul class="hopper-list">
+          ${hopperItems
+            .map(
+              (item) => `
+            <li>
+              <a href="/sprites/${encodeURIComponent(item.botId)}" data-link>
+                <strong>${escapeHtml(item.title)}</strong>
+                <span>${escapeHtml(nameById[item.botId] || item.botId)}${item.due ? ` · ${escapeHtml(item.due)}` : ""}</span>
+              </a>
+            </li>
+          `,
+            )
+            .join("")}
+        </ul>
       </div>
     </section>
   `;
@@ -92,13 +163,13 @@ export function renderDashboard(items) {
       <section class="hero">
         <p class="eyebrow">Good stretch, crew</p>
         <h1>Your sprites are awake and wiggling.</h1>
-        <p class="lede">A playful local HQ for the Grok bots that help Jacob. Open a sprite to peek at its desk — the desks are still empty, but the lights are on.</p>
+        <p class="lede">A playful local HQ for the Grok bots that help Jacob. Each room keeps its own brand — teal-amber, coral-cream, ink and sage, wood, jazz blue, forest green.</p>
       </section>
-      ${emptyTodos}
+      ${hopper}
       <section>
         <div class="section-head">
           <h2>Sprite overview</h2>
-          <p>Six little assistants. Cards are placeholders; personas get louder later.</p>
+          <p>Six assistants. Open counts come from <code>public/data/items.json</code>.</p>
         </div>
         <div class="sprite-grid">${cards}</div>
       </section>
@@ -107,57 +178,71 @@ export function renderDashboard(items) {
   );
 }
 
-export function renderSprite(sprite, items) {
-  const empty = items.length === 0;
-  const list = empty
-    ? `
+export function renderSprite(sprite, items, flash) {
+  const openCount = items.filter((item) => item.status === "open").length;
+  const ordered = items.slice().sort((a, b) => {
+    const rank = { open: 0, snoozed: 1, done: 2 };
+    const delta = (rank[a.status] ?? 9) - (rank[b.status] ?? 9);
+    if (delta) return delta;
+    return (b.updatedAt || "").localeCompare(a.updatedAt || "");
+  });
+
+  const list = ordered.length
+    ? `<ul class="item-list">${ordered.map((item) => itemCard(item)).join("")}</ul>`
+    : `
       <div class="empty-desk">
         <div class="empty-desk-art" aria-hidden="true">
           ${spriteFigure(sprite, "sm")}
           <div class="blank-page"></div>
         </div>
         <h3>Desk is clear</h3>
-        <p>No items for <strong>${sprite.name}</strong> yet. Future work will use the shared stub: <code>{ title, status, botId, due, tags, notes }</code>.</p>
+        <p>No items for <strong>${sprite.name}</strong> yet.</p>
       </div>
-    `
-    : `<ul class="item-list">${items
-        .map(
-          (item) => `
-        <li class="item-card">
-          <h3>${escapeHtml(item.title || "Untitled")}</h3>
-          <p class="muted">${escapeHtml(item.status)} · ${item.due || "no due date"}</p>
-          <p>${escapeHtml(item.notes)}</p>
-        </li>
+    `;
+
+  const primary = (sprite.actions ?? [])
+    .map(
+      (action) => `
+        <button type="button" class="btn btn-primary" data-action="sprite" data-sprite-action="${escapeAttr(action.id)}" title="${escapeAttr(action.hint || action.label)}">${escapeHtml(action.label)}</button>
       `,
-        )
-        .join("")}</ul>`;
+    )
+    .join("");
 
   return shell(
     `
       <a class="back" href="/" data-link>← Back to the nursery</a>
-      <section class="sprite-hero accent-${sprite.accent}">
+      <section class="sprite-hero accent-${sprite.accent}" data-brand="${escapeAttr(sprite.accent)}">
         ${spriteFigure(sprite, "lg")}
         <div>
           <p class="eyebrow">${sprite.name}</p>
           <h1>${sprite.tagline}</h1>
           <p class="lede">${sprite.vibe}</p>
+          <p class="brand-line">Brand: ${escapeHtml(sprite.brand.labels.join(" + "))} · <code>${escapeHtml(sprite.brand.primary)}</code></p>
+          <div class="action-bar" data-bot="${escapeAttr(sprite.id)}">
+            <button type="button" class="btn btn-complete" data-action="complete-first">完成</button>
+            <button type="button" class="btn btn-snooze" data-action="snooze-first">延後</button>
+            ${primary}
+          </div>
         </div>
       </section>
+      ${flashPanel(flash)}
       <div class="sprite-panels">
         <section class="panel">
-          <h2>Items</h2>
+          <h2>Desk <span class="chip open-count">${openCount} open</span></h2>
           ${list}
         </section>
         <aside class="panel schema-peek">
           <h2>Item field kit</h2>
-          <p>Shared schema stub for every sprite:</p>
+          <p>Shared schema for every sprite:</p>
           <pre>{
-  title, status, botId,
-  due, tags, notes
+  id, title, status,
+  botId, due, tags,
+  notes, priority, updatedAt
 }</pre>
           <ul class="field-list">
             ${ITEM_FIELDS.map((field) => `<li><code>${field}</code></li>`).join("")}
           </ul>
+          <p class="muted">Status is <code>open</code>, <code>done</code>, or <code>snoozed</code>. Shared buttons: ${SHARED_ACTIONS.map((action) => action.label).join(" / ")}.</p>
         </aside>
       </div>
     `,
@@ -179,9 +264,13 @@ export function renderNotFound() {
 }
 
 function escapeHtml(value) {
-  return String(value)
+  return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value);
 }
