@@ -1,7 +1,10 @@
 import { asItem, isOpen } from "./schema.js";
 
 const ITEMS_URL = "/data/items.json";
-const STORAGE_KEY = "sprite-portal-items-v3";
+/** Partial overlay: { [id]: { status, updatedAt, ...changed fields } } */
+const OVERLAY_KEY = "sprite-portal:items-overlay";
+/** Legacy full-dump key from earlier builds — ignored on load, cleared on restore. */
+const LEGACY_KEY = "sprite-portal-items-v3";
 
 /** @type {import("./schema.js").SpriteItem[] | null} */
 let cache = null;
@@ -24,32 +27,55 @@ function shiftDue(due, days) {
   return base.toISOString().slice(0, 10);
 }
 
+/** @returns {Record<string, Record<string, unknown>>} */
 function readOverlay() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
+    const raw = localStorage.getItem(OVERLAY_KEY);
+    if (!raw) return {};
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed?.items) ? parsed.items.map(asItem) : null;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    /** @type {Record<string, Record<string, unknown>>} */
+    const out = {};
+    for (const [id, partial] of Object.entries(parsed)) {
+      if (partial && typeof partial === "object" && !Array.isArray(partial)) {
+        out[id] = /** @type {Record<string, unknown>} */ (partial);
+      }
+    }
+    return out;
   } catch {
-    return null;
+    return {};
   }
 }
 
-function persist(items) {
+/** @param {string} id @param {Record<string, unknown>} partial */
+function writeOverlayPartial(id, partial) {
+  if (!id || !partial || !Object.keys(partial).length) return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ items }));
+    const overlay = readOverlay();
+    overlay[id] = { ...(overlay[id] || {}), ...partial };
+    localStorage.setItem(OVERLAY_KEY, JSON.stringify(overlay));
   } catch {
     /* ignore quota / private-mode */
   }
 }
 
+/**
+ * Merge seed items with overlay partials. Overlay-only ids (local adds) are prepended.
+ * @param {import("./schema.js").SpriteItem[]} seed
+ * @param {Record<string, Record<string, unknown>>} overlay
+ */
 function mergeSeed(seed, overlay) {
-  if (!overlay?.length) return seed;
-  const byId = new Map(seed.map((item) => [item.id, item]));
-  for (const item of overlay) {
-    if (item.id) byId.set(item.id, item);
+  const seedIds = new Set(seed.map((item) => item.id).filter(Boolean));
+  const merged = seed.map((item) => {
+    const partial = overlay[item.id];
+    return partial ? asItem({ ...item, ...partial }) : item;
+  });
+
+  for (const [id, partial] of Object.entries(overlay)) {
+    if (!id || seedIds.has(id)) continue;
+    merged.unshift(asItem({ id, ...partial }));
   }
-  return [...byId.values()];
+  return merged;
 }
 
 async function fetchSeed() {
@@ -64,9 +90,28 @@ export async function loadItems() {
     const seed = await fetchSeed();
     cache = mergeSeed(seed, readOverlay());
   } catch {
-    cache = readOverlay() ?? [];
+    const overlay = readOverlay();
+    cache = Object.keys(overlay).length
+      ? mergeSeed([], overlay)
+      : [];
   }
   return cache;
+}
+
+/**
+ * Clear local overlay and reload from seeded items.json.
+ * @returns {Promise<import("./schema.js").SpriteItem[]>}
+ */
+export async function restoreSeeds() {
+  try {
+    localStorage.removeItem(OVERLAY_KEY);
+    localStorage.removeItem(LEGACY_KEY);
+  } catch {
+    /* ignore */
+  }
+  cache = null;
+  clearFlash();
+  return loadItems();
 }
 
 export function getFlash() {
@@ -81,18 +126,16 @@ function setFlash(next) {
   flash = next;
 }
 
-function commit(items) {
-  cache = items;
-  persist(items);
-  return items;
-}
-
+/** @param {string} id @param {Record<string, unknown>} patch */
 function patchItem(id, patch) {
+  const stamped = { ...patch, updatedAt: nowIso() };
   const items = cache ?? [];
   const next = items.map((item) =>
-    item.id === id ? asItem({ ...item, ...patch, updatedAt: nowIso() }) : item,
+    item.id === id ? asItem({ ...item, ...stamped }) : item,
   );
-  return commit(next);
+  cache = next;
+  writeOverlayPartial(id, stamped);
+  return next;
 }
 
 /** @param {string} botId */
@@ -176,7 +219,10 @@ function addItem(partial) {
     id: partial.id || `local-${Date.now()}`,
     updatedAt: nowIso(),
   });
-  return commit([item, ...(cache ?? []).filter((entry) => entry.id !== item.id)]);
+  cache = [item, ...(cache ?? []).filter((entry) => entry.id !== item.id)];
+  // Local-only rows must live entirely in the overlay so they survive refresh.
+  writeOverlayPartial(item.id, { ...item });
+  return cache;
 }
 
 /** Sprite-specific mock handlers that leave a visible, branded result. */

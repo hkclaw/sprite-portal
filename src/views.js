@@ -274,6 +274,9 @@ export function renderDashboard(items) {
         <p class="crumb">Sprite Portal</p>
         <h1>總覽</h1>
         <p class="lede">本地 JSON 書枱。全組 ${open.length} 張未完成 · Today ${when.today} · Overdue ${when.overdue}。</p>
+        <div class="action-bar">
+          <button type="button" class="btn" data-action="restore-seeds" title="清除本機覆寫，重新載入 items.json 種子">還原種子</button>
+        </div>
       </header>
       <section class="stat-row">
         <div class="stat"><span>未完成</span><strong>${counts.open}</strong></div>
@@ -362,6 +365,7 @@ export function renderSprite(sprite, items, flash, allItems = items) {
           <button type="button" class="btn btn-complete" data-action="complete-first">完成</button>
           <button type="button" class="btn btn-snooze" data-action="snooze-first">延後</button>
           ${primary}
+          <button type="button" class="btn" data-action="restore-seeds" title="清除本機覆寫，重新載入 items.json 種子">還原種子</button>
         </div>
       </header>
       ${flashPanel(flash)}

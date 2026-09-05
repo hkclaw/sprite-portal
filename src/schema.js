@@ -3,8 +3,10 @@
  *   id, title, status, botId, updatedAt
  *
  * Each sprite keeps its own persona fields. Local JSON
- * (`/data/items.json`) is the seed. The store may overlay
- * in-session edits (complete / snooze / sprite actions) on top.
+ * (`/data/items.json`) is the seed. The store merges a
+ * localStorage overlay (`sprite-portal:items-overlay`) of
+ * partial edits (complete / snooze / local adds) on top.
+ * 「還原種子」 clears the overlay and reloads seeds.
  */
 
 export const ITEM_STATUSES = ["open", "done", "snoozed"];

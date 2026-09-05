@@ -27,7 +27,7 @@ Then open [http://127.0.0.1:5173](http://127.0.0.1:5173).
 | Dashboard | Open counts + hopper from local mock items |
 | Six sprite routes | Brand room, sample desk, 完成／延後 plus a sprite primary action |
 | Theme | Per-sprite brand colors (not a shared candy palette) |
-| Data | Local JSON at `public/data/items.json` |
+| Data | Local JSON at `public/data/items.json` + `localStorage` overlay (`sprite-portal:items-overlay`); 「還原種子」 resets |
 
 介面預設繁體中文、Notion 式側欄書枱；每隻精靈用自己嘅 persona 欄位，種子喺 `public/data/items.json`。
 

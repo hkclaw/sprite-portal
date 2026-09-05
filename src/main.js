@@ -5,6 +5,7 @@ import {
   completeItem,
   getFlash,
   loadItems,
+  restoreSeeds,
   runSpriteAction,
   snoozeFirstOpen,
   snoozeItem,
@@ -70,6 +71,14 @@ document.addEventListener("click", async (event) => {
   const path = location.pathname.replace(/\/+$/, "") || "/";
   const match = path.match(/^\/sprites\/([^/]+)$/);
   const sprite = match ? findSprite(match[1]) : null;
+
+  if (action === "restore-seeds") {
+    if (!window.confirm("確定還原種子？會清除本機完成／延後覆寫。")) return;
+    await restoreSeeds();
+    await paint(path);
+    showToast("已還原種子");
+    return;
+  }
 
   if (action === "complete" && itemId) {
     completeItem(itemId);
