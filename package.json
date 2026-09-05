@@ -1,0 +1,16 @@
+{
+  "name": "sprite-portal",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Local dashboard for Jacob Grok bot sprites",
+  "type": "module",
+  "scripts": {
+    "start": "vite --host 127.0.0.1 --port 5173",
+    "dev": "vite --host 127.0.0.1 --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5173"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  }
+}
