@@ -31,6 +31,8 @@ Then open [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
 介面預設繁體中文、Notion 式側欄書枱；每隻精靈用自己嘅 persona 欄位，種子喺 `public/data/items.json`。
 
+「加事項」表單除咗必要嘅標題 + 選擇性到期，每隻精靈額外提供 2–3 個 persona 欄位（例如 Jacob 嘅清單／優先／標籤、English Edge 嘅文法／詞彙／預習等等），全部 optional，留空唔會寫入 overlay。
+
 ## Sprites
 
 - **Jacob Bot** — teal + amber

@@ -262,20 +262,64 @@ function addItem(partial) {
 }
 
 /**
+ * Strip persona fields down to non-empty values.
+ * Strings are trimmed; empty strings drop the key.
+ * `true` boolean is kept; `false` drops the key so it doesn't
+ * show up on seeded JSON later as a noisy `false`.
+ * Booleans coming from a checkbox "true"/"on"/"1" are normalised to true.
+ * @param {Record<string, unknown> | null | undefined} raw
+ * @returns {Record<string, unknown>}
+ */
+function cleanPersonaFields(raw) {
+  if (!raw || typeof raw !== "object") return {};
+  /** @type {Record<string, unknown>} */
+  const out = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (value === undefined || value === null) continue;
+    if (typeof value === "boolean") {
+      if (value === true) out[key] = true;
+      continue;
+    }
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) continue;
+      if (trimmed === "true" || trimmed === "on" || trimmed === "1") {
+        out[key] = true;
+        continue;
+      }
+      if (trimmed === "false" || trimmed === "off" || trimmed === "0") continue;
+      out[key] = trimmed;
+      continue;
+    }
+    if (Array.isArray(value)) {
+      if (value.length) out[key] = value;
+      continue;
+    }
+    out[key] = value;
+  }
+  return out;
+}
+
+/**
  * Public add: creates a local item for the given sprite and flashes the result.
- * @param {{ botId: string, title: string, due?: string }} payload
+ * Optional `persona` carries the persona-aware add-form fields; empty values
+ * are dropped so saved items only carry what the user actually filled in.
+ * @param {{ botId: string, title: string, due?: string, persona?: Record<string, unknown> }} payload
  * @returns {import("./schema.js").SpriteItem | null}
  */
-export function addLocalItem({ botId, title, due }) {
+export function addLocalItem({ botId, title, due, persona }) {
   const cleanTitle = typeof title === "string" ? title.trim() : "";
   if (!botId || !cleanTitle) return null;
 
-  const persona = personaFieldsForDue(botId, typeof due === "string" ? due : "");
+  const dueStr = typeof due === "string" ? due : "";
+  const duePersona = personaFieldsForDue(botId, dueStr);
+  const userPersona = cleanPersonaFields(persona);
   const item = addItem({
     botId,
     title: cleanTitle,
     status: "open",
-    ...persona,
+    ...duePersona,
+    ...userPersona,
   });
 
   setFlash({

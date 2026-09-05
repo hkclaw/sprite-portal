@@ -19,6 +19,18 @@ export const STATUS_LABELS = {
 
 /** @typedef {{ key: string, label: string, hint?: string }} PersonaField */
 
+/**
+ * Persona fields exposed on the 「加事項」 form per sprite.
+ * All optional; empty values are not written into the new item.
+ * @typedef {{
+ *   key: string,
+ *   label: string,
+ *   kind: "text" | "select" | "checkbox",
+ *   options?: { value: string, label: string }[],
+ *   hint?: string
+ * }} AddFormField
+ */
+
 /** Per-sprite persona field labels (UI + mock JSON keys). */
 export const FIELD_KITS = {
   jacob: [
@@ -71,6 +83,74 @@ const PERSONA_KEYS = [
 /** @param {string} botId */
 export function fieldKitFor(botId) {
   return FIELD_KITS[botId] ?? [];
+}
+
+/**
+ * Persona-aware optional fields rendered after 標題／到期 on the add form.
+ * Labels are Traditional Chinese. Select options use the same values the
+ * seed JSON uses so empty saves merge cleanly.
+ */
+export const ADD_FORM_FIELDS = {
+  jacob: [
+    {
+      key: "list",
+      label: "清單",
+      kind: "select",
+      options: [
+        { value: "Work", label: "Work" },
+        { value: "Personal", label: "Personal" },
+      ],
+    },
+    {
+      key: "priority",
+      label: "優先",
+      kind: "select",
+      options: [
+        { value: "high", label: "高" },
+        { value: "normal", label: "中" },
+        { value: "low", label: "低" },
+      ],
+    },
+    { key: "tag", label: "標籤", kind: "text" },
+  ],
+  "english-edge": [
+    { key: "grammar", label: "文法", kind: "text" },
+    { key: "vocab", label: "詞彙", kind: "text" },
+    { key: "prep", label: "預習", kind: "text" },
+  ],
+  chaptermind: [
+    {
+      key: "shelf",
+      label: "書架",
+      kind: "select",
+      options: [
+        { value: "在讀", label: "在讀" },
+        { value: "wishlist", label: "wishlist" },
+      ],
+    },
+    { key: "progress", label: "進度", kind: "text" },
+    { key: "discuss", label: "想討論", kind: "text" },
+  ],
+  homepilot: [
+    { key: "category", label: "類別", kind: "text" },
+    { key: "urgent", label: "緊急", kind: "checkbox" },
+    { key: "vendor", label: "供應商", kind: "text" },
+  ],
+  jazz: [
+    { key: "station", label: "油站", kind: "text" },
+    { key: "fuelGrade", label: "油號", kind: "text" },
+    { key: "liters", label: "公升", kind: "text" },
+  ],
+  vitalpilot: [
+    { key: "activity", label: "活動", kind: "text" },
+    { key: "weighIn", label: "秤重", kind: "text" },
+    { key: "soberStreak", label: "戒酒連續日", kind: "text" },
+  ],
+};
+
+/** @param {string} botId @returns {AddFormField[]} */
+export function addFormFieldsFor(botId) {
+  return ADD_FORM_FIELDS[botId] ?? [];
 }
 
 /** @typedef {{

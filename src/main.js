@@ -1,4 +1,5 @@
 import { startRouter } from "./router.js";
+import { addFormFieldsFor } from "./schema.js";
 import { findSprite } from "./sprites.js";
 import {
   addLocalItem,
@@ -11,7 +12,7 @@ import {
   snoozeFirstOpen,
   snoozeItem,
 } from "./store.js";
-import { renderDashboard, renderNotFound, renderSprite } from "./views.js";
+import { renderDashboard, renderNotFound, renderSprite, personaAddFieldsHtml } from "./views.js";
 import "./styles.css";
 
 const app = document.querySelector("#app");
@@ -27,6 +28,35 @@ function showToast(message) {
     toast.classList.remove("is-on");
     toast.hidden = true;
   }, 2400);
+}
+
+/**
+ * Pull persona-aware optional fields out of a submitted add form.
+ * Uses `addFormFieldsFor(botId)` to know which keys + kinds belong to
+ * the selected sprite, then reads `persona.<key>` from FormData.
+ * Empty strings are dropped here so the store stays clean even if
+ * the schema helper isn't reached.
+ * @param {FormData} formData
+ * @param {string} botId
+ * @returns {Record<string, unknown>}
+ */
+function collectPersonaFromForm(formData, botId) {
+  const fields = addFormFieldsFor(botId);
+  /** @type {Record<string, unknown>} */
+  const out = {};
+  for (const field of fields) {
+    const name = `persona.${field.key}`;
+    if (field.kind === "checkbox") {
+      // FormData only includes a checkbox when it's ticked.
+      if (formData.has(name)) out[field.key] = true;
+      continue;
+    }
+    const raw = formData.get(name);
+    if (typeof raw !== "string") continue;
+    const trimmed = raw.trim();
+    if (trimmed) out[field.key] = trimmed;
+  }
+  return out;
 }
 
 async function paint(pathname) {
@@ -144,7 +174,8 @@ document.addEventListener("submit", async (event) => {
     return;
   }
 
-  const created = addLocalItem({ botId, title, due });
+  const persona = collectPersonaFromForm(formData, botId);
+  const created = addLocalItem({ botId, title, due, persona });
   if (!created) {
     showToast("加唔到，試多次");
     return;
@@ -153,4 +184,16 @@ document.addEventListener("submit", async (event) => {
   const path = location.pathname.replace(/\/+$/, "") || "/";
   await paint(path);
   showToast("已加事項");
+});
+
+// When the Dashboard 精靈 select changes, swap the persona fields in place.
+document.addEventListener("change", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLSelectElement)) return;
+  if (target.name !== "botId") return;
+  const form = target.form;
+  const host = form?.querySelector("[data-persona-host]");
+  if (!host) return;
+  host.dataset.bot = target.value;
+  host.innerHTML = personaAddFieldsHtml(target.value);
 });

@@ -1,5 +1,5 @@
 import { barChart, countByStatus, todayOverdueCounts } from "./charts.js";
-import { fieldKitFor, hopperHint, priorityLabel, statusLabel } from "./schema.js";
+import { addFormFieldsFor, fieldKitFor, hopperHint, priorityLabel, statusLabel } from "./schema.js";
 import { SHARED_ACTIONS, SPRITES } from "./sprites.js";
 import { openCountFor, openItems } from "./store.js";
 
@@ -235,6 +235,7 @@ function addItemForm({ botId, includeSpritePicker = false }) {
         (sprite) => `<option value="${escapeAttr(sprite.id)}">${escapeHtml(sprite.name)}</option>`,
       ).join("")
     : "";
+  const initialBot = includeSpritePicker ? (SPRITES[0]?.id ?? "") : (botId || "");
   const hiddenBot = includeSpritePicker
     ? ""
     : `<input type="hidden" name="botId" value="${escapeAttr(botId || "")}" />`;
@@ -246,6 +247,9 @@ function addItemForm({ botId, includeSpritePicker = false }) {
         </label>
       `
     : "";
+  const personaHtml = includeSpritePicker
+    ? `<div class="add-item-persona" data-persona-host data-bot="${escapeAttr(initialBot)}">${personaAddFieldsHtml(initialBot)}</div>`
+    : personaAddFieldsHtml(botId);
   return `
     <form class="add-item-form" data-action="add-item" autocomplete="off">
       ${hiddenBot}
@@ -258,9 +262,56 @@ function addItemForm({ botId, includeSpritePicker = false }) {
         <span>到期</span>
         <input type="date" name="due" class="add-item-date" />
       </label>
+      ${personaHtml}
       <button type="submit" class="btn btn-primary">加事項</button>
     </form>
   `;
+}
+
+function personaInputHtml(field) {
+  if (field.kind === "select") {
+    const opts = (field.options ?? [])
+      .map(
+        (opt) =>
+          `<option value="${escapeAttr(opt.value)}">${escapeHtml(opt.label)}</option>`,
+      )
+      .join("");
+    return `
+      <label class="add-item-field">
+        <span>${escapeHtml(field.label)}</span>
+        <select name="persona.${escapeAttr(field.key)}" class="add-item-select">
+          <option value="">—</option>${opts}
+        </select>
+      </label>
+    `;
+  }
+  if (field.kind === "checkbox") {
+    return `
+      <label class="add-item-field add-item-check">
+        <input type="checkbox" name="persona.${escapeAttr(field.key)}" value="true" />
+        <span>${escapeHtml(field.label)}</span>
+      </label>
+    `;
+  }
+  return `
+    <label class="add-item-field">
+      <span>${escapeHtml(field.label)}</span>
+      <input type="text" name="persona.${escapeAttr(field.key)}" class="add-item-input" maxlength="120" />
+    </label>
+  `;
+}
+
+/**
+ * Render the optional persona fields for a given sprite.
+ * Used inline on each sprite room, and re-painted into the
+ * `[data-persona-host]` container on Dashboard when the
+ * 精靈 select changes.
+ * @param {string} botId
+ */
+export function personaAddFieldsHtml(botId) {
+  const fields = addFormFieldsFor(botId);
+  if (!fields.length) return "";
+  return `<div class="add-item-persona-fields" data-bot="${escapeAttr(botId)}">${fields.map(personaInputHtml).join("")}</div>`;
 }
 
 export function renderDashboard(items) {

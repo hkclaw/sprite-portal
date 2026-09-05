@@ -718,3 +718,62 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .add-item-form .btn-primary {
   align-self: flex-end;
 }
+
+/* Persona-aware optional fields on the add form. */
+.add-item-persona,
+.add-item-persona-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 12px;
+  width: 100%;
+}
+
+.add-item-persona:empty { display: none; }
+
+.add-item-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.add-item-check > span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0;
+}
+
+.add-item-check input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  display: inline-grid;
+  place-content: center;
+  cursor: pointer;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.add-item-check input[type="checkbox"]::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  background: var(--jacob-teal);
+  border-radius: 2px;
+  transform: scale(0);
+  transition: transform 0.08s ease;
+}
+
+.add-item-check input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+
+.add-item-check input[type="checkbox"]:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(20, 143, 138, 0.22);
+}
