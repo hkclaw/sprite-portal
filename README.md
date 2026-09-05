@@ -29,15 +29,7 @@ Then open [http://127.0.0.1:5173](http://127.0.0.1:5173).
 | Theme | Per-sprite brand colors (not a shared candy palette) |
 | Data | Local JSON at `public/data/items.json` |
 
-## Shared item schema (stub)
-
-Every future work item should look like this:
-
-```js
-{ id, title, status /* open|done|snoozed */, botId, due?, tags[], notes?, priority?, updatedAt }
-```
-
-See `src/schema.js` for field notes. JSON is enough for this shell; SQLite can replace the store later without changing the shape.
+介面預設繁體中文。每隻精靈用自己嘅 persona 欄位（唔再用共用 field-kit）；種子資料喺 `public/data/items.json`。
 
 ## Sprites
 

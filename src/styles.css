@@ -49,7 +49,7 @@ body {
 }
 
 body {
-  font-family: "Nunito", system-ui, sans-serif;
+  font-family: "Noto Sans HK", "Noto Sans TC", "Nunito", system-ui, sans-serif;
   color: var(--ink);
   background:
     radial-gradient(1200px 700px at 10% -10%, #5ce1e6 0%, transparent 45%),
@@ -70,7 +70,7 @@ h2,
 h3,
 .brand strong,
 .eyebrow {
-  font-family: "Fredoka", "Nunito", sans-serif;
+  font-family: "Fredoka", "Noto Sans HK", "Nunito", sans-serif;
 }
 
 h1,
@@ -581,41 +581,64 @@ pre {
 
 .sprite-panels {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.8fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
+}
+
+.persona-kit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.kit-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px dashed var(--line);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.kit-label small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.field-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(16, 20, 40, 0.06);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.field-pill em {
+  font-style: normal;
+  color: var(--muted);
+}
+
+.desk-foot {
+  margin-top: 14px;
+  color: #d8c8ff;
 }
 
 .panel {
   padding: 22px 24px;
-}
-
-.schema-peek {
-  background:
-    linear-gradient(180deg, rgba(155, 93, 229, 0.12), transparent 40%),
-    var(--paper);
-}
-
-.schema-peek pre {
-  background: #1d1436;
-  color: #fee440;
-  padding: 14px 16px;
-  border-radius: 16px;
-  overflow: auto;
-}
-
-.field-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 0;
-  list-style: none;
-}
-
-.field-list li {
-  background: #fff;
-  border-radius: 999px;
-  padding: 4px 10px;
-  border: 1px dashed var(--line);
 }
 
 .empty-desk {

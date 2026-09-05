@@ -1,4 +1,4 @@
-import { ITEM_FIELDS } from "./schema.js";
+import { fieldKitFor, hopperHint, priorityLabel, statusLabel } from "./schema.js";
 import { SHARED_ACTIONS, SPRITES } from "./sprites.js";
 import { openCountFor, openItems } from "./store.js";
 
@@ -48,20 +48,14 @@ function shell(content, activePath) {
         <span class="portal-ring" aria-hidden="true"></span>
         <span>
           <strong>Sprite Portal</strong>
-          <small>Jacob’s local bot nursery</small>
+          <small>Jacob 嘅本地精靈苗圃</small>
         </span>
       </a>
-      <nav class="sprite-rail" aria-label="Sprites">${nav}</nav>
+      <nav class="sprite-rail" aria-label="精靈導覽">${nav}</nav>
     </header>
     <main class="stage">${content}</main>
     <div class="toast" id="toast" hidden></div>
   `;
-}
-
-function statusLabel(status) {
-  if (status === "done") return "done";
-  if (status === "snoozed") return "snoozed";
-  return "open";
 }
 
 function itemActions(item) {
@@ -74,20 +68,39 @@ function itemActions(item) {
   `;
 }
 
+function formatFieldValue(field, value) {
+  if (value === undefined || value === null || value === "") return "";
+  if (field.key === "priority") return priorityLabel(value);
+  if (field.key === "studyReady") return value === true ? "就緒" : "未就緒";
+  if (field.key === "urgent") return value === true ? "緊急" : "唔急";
+  if (typeof value === "boolean") return value ? "係" : "唔係";
+  if (Array.isArray(value)) return value.join("、");
+  return String(value);
+}
+
+function personaFields(item, botId) {
+  return fieldKitFor(botId)
+    .map((field) => {
+      const text = formatFieldValue(field, item[field.key]);
+      if (!text) return "";
+      return `<span class="field-pill"><em>${escapeHtml(field.label)}</em> ${escapeHtml(text)}</span>`;
+    })
+    .filter(Boolean)
+    .join("");
+}
+
 function itemCard(item, spriteName) {
-  const due = item.due ? `due ${item.due}` : "no due date";
-  const tags = (item.tags ?? []).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
-  const notes = item.notes ? `<p>${escapeHtml(item.notes)}</p>` : "";
   const who = spriteName ? `<span class="item-who">${escapeHtml(spriteName)}</span>` : "";
+  const fields = personaFields(item, item.botId);
+  const accent = item.urgent === true || item.priority === "high" || item.when === "過期" ? "priority-high" : "";
   return `
-    <li class="item-card status-${item.status} priority-${item.priority || "normal"}">
+    <li class="item-card status-${item.status} ${accent}">
       <div class="item-top">
-        <h3>${escapeHtml(item.title || "Untitled")}</h3>
+        <h3>${escapeHtml(item.title || "無標題")}</h3>
         <span class="chip status-chip">${statusLabel(item.status)}</span>
       </div>
-      <p class="muted">${who}${who ? " · " : ""}${escapeHtml(item.status)} · ${escapeHtml(due)}${item.priority ? ` · ${escapeHtml(item.priority)}` : ""}</p>
-      ${notes}
-      <div class="tag-row">${tags}</div>
+      <p class="muted">${who}${who ? " · " : ""}${escapeHtml(statusLabel(item.status))}</p>
+      <div class="field-row">${fields}</div>
       ${itemActions(item)}
     </li>
   `;
@@ -100,7 +113,7 @@ function flashPanel(flash) {
     .join("");
   return `
     <section class="flash-panel kind-${escapeAttr(flash.kind || "note")}" data-flash>
-      <p class="eyebrow">${escapeHtml(flash.title || "Update")}</p>
+      <p class="eyebrow">${escapeHtml(flash.title || "更新")}</p>
       <p>${escapeHtml(flash.body || "")}</p>
       ${stats ? `<div class="stat-row">${stats}</div>` : ""}
     </section>
@@ -117,7 +130,7 @@ export function renderDashboard(items) {
         <div class="card-copy">
           <h2>${sprite.name}</h2>
           <p>${sprite.tagline}</p>
-          <span class="chip open-count">${count} open</span>
+          <span class="chip open-count">${count} 張未完成</span>
         </div>
       </a>
     `;
@@ -138,8 +151,8 @@ export function renderDashboard(items) {
         </div>
       </div>
       <div class="dock-copy">
-        <h2>Todo hopper</h2>
-        <p>${open.length} open across the crew. Local JSON desks — complete or snooze from a sprite room.</p>
+        <h2>執漏欄</h2>
+        <p>全組仲有 ${open.length} 張未完成。本地 JSON 書枱——入房就可以完成或延後。</p>
         <ul class="hopper-list">
           ${hopperItems
             .map(
@@ -147,7 +160,7 @@ export function renderDashboard(items) {
             <li>
               <a href="/sprites/${encodeURIComponent(item.botId)}" data-link>
                 <strong>${escapeHtml(item.title)}</strong>
-                <span>${escapeHtml(nameById[item.botId] || item.botId)}${item.due ? ` · ${escapeHtml(item.due)}` : ""}</span>
+                <span>${escapeHtml(nameById[item.botId] || item.botId)}${hopperHint(item) ? ` · ${escapeHtml(hopperHint(item))}` : ""}</span>
               </a>
             </li>
           `,
@@ -161,15 +174,15 @@ export function renderDashboard(items) {
   return shell(
     `
       <section class="hero">
-        <p class="eyebrow">Good stretch, crew</p>
-        <h1>Your sprites are awake and wiggling.</h1>
-        <p class="lede">A playful local HQ for the Grok bots that help Jacob. Each room keeps its own brand — teal-amber, coral-cream, ink and sage, wood, jazz blue, forest green.</p>
+        <p class="eyebrow">各位，伸個懶腰先</p>
+        <h1>精靈醒晒，喺度郁緊。</h1>
+        <p class="lede">Jacob 嘅 Grok 機械人本地總部。每間房有自己品牌色——青綠琥珀、珊瑚奶油、墨紙鼠尾草、木色、爵士藍、森林綠。</p>
       </section>
       ${hopper}
       <section>
         <div class="section-head">
-          <h2>Sprite overview</h2>
-          <p>Six assistants. Open counts come from <code>public/data/items.json</code>.</p>
+          <h2>精靈一覽</h2>
+          <p>六位助手。未完成數目來自 <code>public/data/items.json</code>。</p>
         </div>
         <div class="sprite-grid">${cards}</div>
       </section>
@@ -195,8 +208,8 @@ export function renderSprite(sprite, items, flash) {
           ${spriteFigure(sprite, "sm")}
           <div class="blank-page"></div>
         </div>
-        <h3>Desk is clear</h3>
-        <p>No items for <strong>${sprite.name}</strong> yet.</p>
+        <h3>書枱清空咗</h3>
+        <p>而家未有 <strong>${sprite.name}</strong> 嘅卡片。</p>
       </div>
     `;
 
@@ -210,14 +223,14 @@ export function renderSprite(sprite, items, flash) {
 
   return shell(
     `
-      <a class="back" href="/" data-link>← Back to the nursery</a>
+      <a class="back" href="/" data-link>← 返回苗圃</a>
       <section class="sprite-hero accent-${sprite.accent}" data-brand="${escapeAttr(sprite.accent)}">
         ${spriteFigure(sprite, "lg")}
         <div>
           <p class="eyebrow">${sprite.name}</p>
           <h1>${sprite.tagline}</h1>
           <p class="lede">${sprite.vibe}</p>
-          <p class="brand-line">Brand: ${escapeHtml(sprite.brand.labels.join(" + "))} · <code>${escapeHtml(sprite.brand.primary)}</code></p>
+          <p class="brand-line">品牌色：${escapeHtml(sprite.brand.labels.join(" + "))} · <code>${escapeHtml(sprite.brand.primary)}</code></p>
           <div class="action-bar" data-bot="${escapeAttr(sprite.id)}">
             <button type="button" class="btn btn-complete" data-action="complete-first">完成</button>
             <button type="button" class="btn btn-snooze" data-action="snooze-first">延後</button>
@@ -228,23 +241,17 @@ export function renderSprite(sprite, items, flash) {
       ${flashPanel(flash)}
       <div class="sprite-panels">
         <section class="panel">
-          <h2>Desk <span class="chip open-count">${openCount} open</span></h2>
+          <h2>書枱 <span class="chip open-count">${openCount} 張未完成</span></h2>
+          <p class="persona-kit">${fieldKitFor(sprite.id)
+            .map(
+              (field) =>
+                `<span class="kit-label">${escapeHtml(field.label)}${field.hint ? ` <small>${escapeHtml(field.hint)}</small>` : ""}</span>`,
+            )
+            .join("")}</p>
           ${list}
         </section>
-        <aside class="panel schema-peek">
-          <h2>Item field kit</h2>
-          <p>Shared schema for every sprite:</p>
-          <pre>{
-  id, title, status,
-  botId, due, tags,
-  notes, priority, updatedAt
-}</pre>
-          <ul class="field-list">
-            ${ITEM_FIELDS.map((field) => `<li><code>${field}</code></li>`).join("")}
-          </ul>
-          <p class="muted">Status is <code>open</code>, <code>done</code>, or <code>snoozed</code>. Shared buttons: ${SHARED_ACTIONS.map((action) => action.label).join(" / ")}.</p>
-        </aside>
       </div>
+      <p class="desk-foot muted">狀態：<code>未完成</code>、<code>完成</code> 或 <code>延後</code>。共用掣：${SHARED_ACTIONS.map((action) => action.label).join("／")}。</p>
     `,
     sprite.path,
   );
@@ -254,9 +261,9 @@ export function renderNotFound() {
   return shell(
     `
       <section class="hero">
-        <h1>That sprite wandered off.</h1>
-        <p class="lede">No portal door here. Head back to the nursery.</p>
-        <a class="back" href="/" data-link>← Dashboard</a>
+        <h1>呢隻精靈走失咗。</h1>
+        <p class="lede">呢度冇傳送門。返去苗圃啦。</p>
+        <a class="back" href="/" data-link>← 總覽</a>
       </section>
     `,
     "",
