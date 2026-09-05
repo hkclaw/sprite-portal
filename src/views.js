@@ -229,6 +229,40 @@ function spriteCharts(sprite, items) {
   return `<div class="chart-grid">${completion}</div>`;
 }
 
+function addItemForm({ botId, includeSpritePicker = false }) {
+  const spriteOptions = includeSpritePicker
+    ? SPRITES.map(
+        (sprite) => `<option value="${escapeAttr(sprite.id)}">${escapeHtml(sprite.name)}</option>`,
+      ).join("")
+    : "";
+  const hiddenBot = includeSpritePicker
+    ? ""
+    : `<input type="hidden" name="botId" value="${escapeAttr(botId || "")}" />`;
+  const select = includeSpritePicker
+    ? `
+        <label class="add-item-field">
+          <span>精靈</span>
+          <select name="botId" class="add-item-select">${spriteOptions}</select>
+        </label>
+      `
+    : "";
+  return `
+    <form class="add-item-form" data-action="add-item" autocomplete="off">
+      ${hiddenBot}
+      ${select}
+      <label class="add-item-field">
+        <span>標題</span>
+        <input type="text" name="title" class="add-item-input" placeholder="例：交電費單" required maxlength="120" />
+      </label>
+      <label class="add-item-field">
+        <span>到期</span>
+        <input type="date" name="due" class="add-item-date" />
+      </label>
+      <button type="submit" class="btn btn-primary">加事項</button>
+    </form>
+  `;
+}
+
 export function renderDashboard(items) {
   const open = openItems(items);
   const hopperItems = open
@@ -285,6 +319,13 @@ export function renderDashboard(items) {
         <div class="stat"><span>Overdue</span><strong>${when.overdue}</strong></div>
       </section>
       ${dashboardCharts(items)}
+      <section class="panel">
+        <div class="panel-head">
+          <h2>加事項</h2>
+          <p>揀一位精靈，新開一張本地卡。</p>
+        </div>
+        ${addItemForm({ includeSpritePicker: true })}
+      </section>
       <section class="panel">
         <div class="panel-head">
           <h2>執漏欄</h2>
@@ -370,6 +411,13 @@ export function renderSprite(sprite, items, flash, allItems = items) {
       </header>
       ${flashPanel(flash)}
       ${spriteCharts(sprite, items)}
+      <section class="panel">
+        <div class="panel-head">
+          <h2>加事項</h2>
+          <span class="chip">${sprite.name}</span>
+        </div>
+        ${addItemForm({ botId: sprite.id })}
+      </section>
       <section class="panel">
         <div class="panel-head">
           <h2>書枱</h2>

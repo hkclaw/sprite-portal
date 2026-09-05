@@ -27,6 +27,19 @@ function shiftDue(due, days) {
   return base.toISOString().slice(0, 10);
 }
 
+function todayYmd() {
+  const now = new Date();
+  const tz = now.getTimezoneOffset() * 60000;
+  return new Date(now - tz).toISOString().slice(0, 10);
+}
+
+function generateLocalId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `local-${crypto.randomUUID()}`;
+  }
+  return `local-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 /** @returns {Record<string, Record<string, unknown>>} */
 function readOverlay() {
   try {
@@ -213,16 +226,66 @@ export function snoozeFirstOpen(botId) {
   return snoozeItem(id);
 }
 
+/**
+ * Map optional due date onto persona-specific fields without changing the schema.
+ * Returns a partial of persona fields to merge into the new item.
+ * @param {string} botId
+ * @param {string} due
+ */
+function personaFieldsForDue(botId, due) {
+  if (!due) return {};
+  /** @type {Record<string, unknown>} */
+  const out = {};
+  const today = todayYmd();
+  if (botId === "jacob") {
+    out.due = due;
+    if (due === today) out.when = "Today";
+  } else if (botId === "english-edge") {
+    out.nextClass = due;
+  } else if (botId === "homepilot") {
+    out.deadline = due;
+  }
+  return out;
+}
+
 function addItem(partial) {
+  const id = partial.id || generateLocalId();
   const item = asItem({
     ...partial,
-    id: partial.id || `local-${Date.now()}`,
+    id,
     updatedAt: nowIso(),
   });
   cache = [item, ...(cache ?? []).filter((entry) => entry.id !== item.id)];
   // Local-only rows must live entirely in the overlay so they survive refresh.
   writeOverlayPartial(item.id, { ...item });
-  return cache;
+  return item;
+}
+
+/**
+ * Public add: creates a local item for the given sprite and flashes the result.
+ * @param {{ botId: string, title: string, due?: string }} payload
+ * @returns {import("./schema.js").SpriteItem | null}
+ */
+export function addLocalItem({ botId, title, due }) {
+  const cleanTitle = typeof title === "string" ? title.trim() : "";
+  if (!botId || !cleanTitle) return null;
+
+  const persona = personaFieldsForDue(botId, typeof due === "string" ? due : "");
+  const item = addItem({
+    botId,
+    title: cleanTitle,
+    status: "open",
+    ...persona,
+  });
+
+  setFlash({
+    spriteId: botId,
+    kind: "add",
+    title: "已加事項",
+    body: `「${item.title}」已加到書枱。`,
+  });
+
+  return item;
 }
 
 /** Sprite-specific mock handlers that leave a visible, branded result. */
