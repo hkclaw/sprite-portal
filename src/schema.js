@@ -214,6 +214,24 @@ export function priorityLabel(priority) {
   return typeof priority === "string" ? priority : "";
 }
 
+/**
+ * Display normaliser for ChapterMind 進度 strings. The progress bump in
+ * `runSpriteAction("progress")` once double-stamped a `%` because the
+ * regex captured the percent sign and the replacement appended another,
+ * so a "62%" row would land in the overlay / cache as "67%%". Collapsing
+ * any run of 2+ `%` signs back to a single one means glance chips, desk
+ * cells, and hopper hints never show the doubled form, even if older
+ * overlay state still carries it from before the fix. Strings without a
+ * percent sign (e.g. "線索清單 · 三條未收") pass through untouched because
+ * the regex requires `(\d+)%+`.
+ * @param {unknown} value
+ * @returns {unknown}
+ */
+export function normalizeProgress(value) {
+  if (typeof value !== "string") return value;
+  return value.replace(/(\d+)%+/g, "$1%");
+}
+
 /** Compact hopper line from persona fields. */
 export function hopperHint(item) {
   switch (item.botId) {
@@ -222,7 +240,7 @@ export function hopperHint(item) {
     case "english-edge":
       return [item.nextClass, item.prep, item.scriptStatus].filter(Boolean).join(" · ");
     case "chaptermind":
-      return [item.shelf, item.progress].filter(Boolean).join(" · ");
+      return [item.shelf, normalizeProgress(item.progress)].filter(Boolean).join(" · ");
     case "homepilot":
       return [item.category, item.deadline, item.urgent === true ? "urgent" : "", item.houseStatus]
         .filter(Boolean)

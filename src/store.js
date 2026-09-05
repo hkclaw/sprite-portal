@@ -9,6 +9,15 @@ const LEGACY_KEY = "sprite-portal-items-v3";
 /** @type {import("./schema.js").SpriteItem[] | null} */
 let cache = null;
 
+/**
+ * Immutable copy of the seed items kept around so primary actions can
+ * re-merge after an overlay write without re-fetching items.json.
+ * Populated by `loadItems` / `restoreSeeds`; cleared whenever the
+ * overlay is cleared so the next load refreshes both at once.
+ * @type {import("./schema.js").SpriteItem[] | null}
+ */
+let seedSnapshot = null;
+
 /** @type {{ spriteId?: string, kind?: string, title?: string, body?: string, stats?: { label: string, value: string }[] } | null} */
 let flash = null;
 
@@ -101,12 +110,14 @@ export async function loadItems() {
   if (cache) return cache;
   try {
     const seed = await fetchSeed();
+    seedSnapshot = seed;
     cache = mergeSeed(seed, readOverlay());
   } catch {
     const overlay = readOverlay();
     cache = Object.keys(overlay).length
       ? mergeSeed([], overlay)
       : [];
+    seedSnapshot = [];
   }
   return cache;
 }
@@ -123,6 +134,7 @@ export async function restoreSeeds() {
     /* ignore */
   }
   cache = null;
+  seedSnapshot = null;
   clearFlash();
   return loadItems();
 }
@@ -429,6 +441,42 @@ export function addLocalItem({ botId, title, due, persona }) {
 }
 
 /**
+ * Re-merge the current localStorage overlay onto the original seed and
+ * replace the module cache with the result. The seed snapshot is taken
+ * on the first successful `loadItems` / `restoreSeeds`; if it is missing
+ * (e.g. during early boot) we fall back to the live cache as a best
+ * effort so the merge still produces a consistent view. Pure local
+ * data — never touches the network.
+ * @returns {import("./schema.js").SpriteItem[]}
+ */
+function syncCacheFromOverlay() {
+  const seed = seedSnapshot ?? ((cache ?? []).slice());
+  cache = mergeSeed(seed, readOverlay());
+  return cache;
+}
+
+/**
+ * Shared post-write helper for primary sprite actions (inbox / class /
+ * progress / urgent / refuel / garmin). Re-merges the overlay onto the
+ * seed snapshot so the cache is exactly `mergeSeed(seedSnapshot,
+ * readOverlay())`, then runs the caller-supplied `buildFlash` against
+ * that fresh cache. This is what makes the flash reflect post-write
+ * state — the buildFlash callback receives the synced rows, so any
+ * `progress` / `houseStatus` / `garmin` value the action just stamped
+ * is read from the synced cache, not from a stale pre-write reference.
+ *
+ * @param {(synced: import("./schema.js").SpriteItem[]) => { spriteId: string, kind: string, title: string, body: string, stats?: { label: string, value: string }[] }} buildFlash
+ * @returns {import("./schema.js").SpriteItem[]}
+ */
+function finishPrimaryAction(buildFlash) {
+  const synced = syncCacheFromOverlay();
+  if (typeof buildFlash === "function") {
+    setFlash(buildFlash(synced));
+  }
+  return synced;
+}
+
+/**
  * Sprite-specific handlers that perform REAL overlay writes for each
  * primary action. After the write helpers (updateLocalItem /
  * addLocalItem / completeItem) return, the flash is set with an
@@ -490,38 +538,42 @@ export function runSpriteAction(sprite, actionId) {
       completeItem(highPriority.id);
     }
 
-    // Recompute from cache so the post-write counts drive the flash.
-    const liveOpen = (cache ?? []).filter(
-      (item) => item.botId === botId && isOpen(item),
-    );
-    const work = liveOpen.filter((item) => item.list === "Work").length;
-    const personal = liveOpen.filter((item) => item.list === "Personal").length;
-    const today = liveOpen.filter((item) => item.when === "Today").length;
-    const overdue = liveOpen.filter((item) => item.when === "Overdue").length;
-    const high = liveOpen.filter((item) => item.priority === "high").length;
-    const earliest = liveOpen
-      .filter((item) => typeof item.due === "string" && item.due)
-      .map((item) => item.due)
-      .sort()[0];
+    // Re-merge the overlay onto the seed snapshot, then build the
+    // flash from the synced cache so the post-write counts (and the
+    // surviving oldest / highPriority titles, re-read in case they
+    // drifted) drive the toast — not the stale pre-write refs.
+    return finishPrimaryAction((synced) => {
+      const liveOpen = synced.filter(
+        (item) => item.botId === botId && isOpen(item),
+      );
+      const work = liveOpen.filter((item) => item.list === "Work").length;
+      const personal = liveOpen.filter((item) => item.list === "Personal").length;
+      const today = liveOpen.filter((item) => item.when === "Today").length;
+      const overdue = liveOpen.filter((item) => item.when === "Overdue").length;
+      const high = liveOpen.filter((item) => item.priority === "high").length;
+      const earliest = liveOpen
+        .filter((item) => typeof item.due === "string" && item.due)
+        .map((item) => item.due)
+        .sort()[0];
 
-    /** @type {string[]} */
-    const parts = [
-      `TickTick Work ${work} / Personal ${personal}`,
-      `Today ${today}`,
-      `Overdue ${overdue}`,
-      `優先高 ${high} 張`,
-    ];
-    if (oldestFollowUp && oldestTitle) parts.push(`已標「${oldestFollowUp}」· ${oldestTitle}`);
-    if (highPriorityTitle) parts.push(`已勾走「${highPriorityTitle}」`);
-    parts.push(`最早到期 ${earliest || "—"}`);
+      /** @type {string[]} */
+      const parts = [
+        `TickTick Work ${work} / Personal ${personal}`,
+        `Today ${today}`,
+        `Overdue ${overdue}`,
+        `優先高 ${high} 張`,
+      ];
+      if (oldestFollowUp && oldestTitle) parts.push(`已標「${oldestFollowUp}」· ${oldestTitle}`);
+      if (highPriorityTitle) parts.push(`已勾走「${highPriorityTitle}」`);
+      parts.push(`最早到期 ${earliest || "—"}`);
 
-    setFlash({
-      spriteId: botId,
-      kind: "inbox",
-      title: "執漏收件箱",
-      body: `${parts.join(" · ")}。`,
+      return {
+        spriteId: botId,
+        kind: "inbox",
+        title: "執漏收件箱",
+        body: `${parts.join(" · ")}。`,
+      };
     });
-    return cache ?? [];
   }
 
   if (actionId === "class") {
@@ -559,23 +611,28 @@ export function runSpriteAction(sprite, actionId) {
       latest = created;
     }
 
-    if (!latest) {
-      setFlash({
+    // Sync overlay → cache, then build flash from the synced row so the
+    // bumped prep / scriptStatus (and the freshly-created fallback) are
+    // the values the toast surfaces.
+    return finishPrimaryAction((synced) => {
+      const liveLatest = latest
+        ? (synced.find((item) => item.id === latest.id) ?? latest)
+        : null;
+      if (!liveLatest) {
+        return {
+          spriteId: botId,
+          kind: "class",
+          title: "今日課堂",
+          body: "冇未完成嘅課堂卡。",
+        };
+      }
+      return {
         spriteId: botId,
         kind: "class",
         title: "今日課堂",
-        body: "冇未完成嘅課堂卡。",
-      });
-      return cache ?? [];
-    }
-
-    setFlash({
-      spriteId: botId,
-      kind: "class",
-      title: "今日課堂",
-      body: `下一堂 ${latest.nextClass || "—"}。grammar：${latest.grammar || "—"}。vocab：${latest.vocab || "—"}。speaking script status：${latest.scriptStatus || "—"}。prep：${latest.prep || "—"}。`,
+        body: `下一堂 ${liveLatest.nextClass || "—"}。grammar：${liveLatest.grammar || "—"}。vocab：${liveLatest.vocab || "—"}。speaking script status：${liveLatest.scriptStatus || "—"}。prep：${liveLatest.prep || "—"}。`,
+      };
     });
-    return cache ?? [];
   }
 
   if (actionId === "progress") {
@@ -592,13 +649,17 @@ export function runSpriteAction(sprite, actionId) {
       // Bump the percentage in the progress string by +5 if it carries
       // one; otherwise append a hint. Refresh discuss with a small
       // marker so the chaptermind glance chip (進度 / 想討論呢段)
-      // visibly moves after the write.
+      // visibly moves after the write. The replacement string uses only
+      // `${sp}` — the captured `\s*%` group already carries the percent
+      // sign, so re-emitting `%` here would double-stamp "62%" as
+      // "67%%". After the write the focused row is re-read from the
+      // synced cache below so the flash shows the bumped progress.
       const cur = String(focused.progress || "");
       const match = cur.match(/(\d+)(\s*%)/);
       const newProgress = match
         ? cur.replace(
             /(\d+)(\s*%)/,
-            (_m, n, sp) => `${Math.min(100, parseInt(n, 10) + 5)}${sp}%`,
+            (_m, n, sp) => `${Math.min(100, parseInt(n, 10) + 5)}${sp}`,
           )
         : `${cur}${cur ? " · " : ""}剛加咗 5%`;
       const oldDiscuss = String(focused.discuss || "").trim();
@@ -623,31 +684,36 @@ export function runSpriteAction(sprite, actionId) {
       focused = created;
     }
 
-    if (!focused) {
-      setFlash({
+    // Re-merge overlay, then build the flash from the synced row so
+    // the bumped progress / discuss (and the freshly-created wishlist
+    // fallback) are what the toast surfaces — not the pre-write ref.
+    return finishPrimaryAction((synced) => {
+      const liveFocused = focused
+        ? (synced.find((item) => item.id === focused.id) ?? focused)
+        : null;
+      if (!liveFocused) {
+        return {
+          spriteId: botId,
+          kind: "progress",
+          title: "閱讀進度",
+          body: "書架暫時空住。",
+        };
+      }
+      const liveBooks = synced.filter((item) => item.botId === botId);
+      const liveReading = liveBooks.filter((item) => item.shelf === "在讀");
+      const liveWishlist = liveBooks.filter((item) => item.shelf === "wishlist");
+      return {
         spriteId: botId,
         kind: "progress",
         title: "閱讀進度",
-        body: "書架暫時空住。",
-      });
-      return cache ?? [];
-    }
-
-    const liveBooks = (cache ?? []).filter((item) => item.botId === botId);
-    const liveReading = liveBooks.filter((item) => item.shelf === "在讀");
-    const liveWishlist = liveBooks.filter((item) => item.shelf === "wishlist");
-    setFlash({
-      spriteId: botId,
-      kind: "progress",
-      title: "閱讀進度",
-      body: `在讀「${focused.title}」· ${focused.progress || "—"}。想討論呢段：${focused.discuss || "—"}`,
-      stats: [
-        { label: "在讀", value: String(liveReading.length) },
-        { label: "wishlist", value: String(liveWishlist.length) },
-        { label: "進度", value: focused.progress ? String(focused.progress) : "—" },
-      ],
+        body: `在讀「${liveFocused.title}」· ${liveFocused.progress || "—"}。想討論呢段：${liveFocused.discuss || "—"}`,
+        stats: [
+          { label: "在讀", value: String(liveReading.length) },
+          { label: "wishlist", value: String(liveWishlist.length) },
+          { label: "進度", value: liveFocused.progress ? String(liveFocused.progress) : "—" },
+        ],
+      };
     });
-    return cache ?? [];
   }
 
   if (actionId === "urgent") {
@@ -692,21 +758,26 @@ export function runSpriteAction(sprite, actionId) {
       houseStatus: "處理中",
     });
 
-    const liveOpen = (cache ?? []).filter(
-      (item) => item.botId === botId && isOpen(item),
-    );
-    const urgentCount = liveOpen.filter((item) => item.urgent === true).length;
-    const nearest = liveOpen
-      .filter((item) => typeof item.deadline === "string" && item.deadline)
-      .slice()
-      .sort((a, b) => (a.deadline || "").localeCompare(b.deadline || ""))[0];
-    setFlash({
-      spriteId: botId,
-      kind: "urgent",
-      title: "家居緊急",
-      body: `已標緊急：${candidateTitle}（${candidateCategory || "類別 —"} · 供應商 ${candidateVendor || "—"} · deadline ${candidateDeadline || "—"} · 狀態 處理中）。現共 ${urgentCount} 張緊急，最近 deadline ${nearest?.deadline || "—"}。`,
+    // Re-merge overlay, then build the flash from the synced state so
+    // the urgent count + nearest deadline reflect the row we just
+    // stamped (post-write houseStatus "處理中" is rendered by the
+    // homepilot glanceChips and stays in sync via the same merged view).
+    return finishPrimaryAction((synced) => {
+      const liveOpen = synced.filter(
+        (item) => item.botId === botId && isOpen(item),
+      );
+      const urgentCount = liveOpen.filter((item) => item.urgent === true).length;
+      const nearest = liveOpen
+        .filter((item) => typeof item.deadline === "string" && item.deadline)
+        .slice()
+        .sort((a, b) => (a.deadline || "").localeCompare(b.deadline || ""))[0];
+      return {
+        spriteId: botId,
+        kind: "urgent",
+        title: "家居緊急",
+        body: `已標緊急：${candidateTitle}（${candidateCategory || "類別 —"} · 供應商 ${candidateVendor || "—"} · deadline ${candidateDeadline || "—"} · 狀態 處理中）。現共 ${urgentCount} 張緊急，最近 deadline ${nearest?.deadline || "—"}。`,
+      };
     });
-    return cache ?? [];
   }
 
   if (actionId === "refuel") {
@@ -728,27 +799,30 @@ export function runSpriteAction(sprite, actionId) {
       },
     });
 
-    if (!created) {
-      setFlash({
-        spriteId: botId,
-        kind: "refuel",
-        title: "入油",
-        body: "入油加唔到。",
-      });
-      return cache ?? [];
-    }
-
     // glanceChips jazz uses newestOpen ?? newestAny, so even if the new
     // row was created done, the just-stamped updatedAt would still pick
     // it. We default to open here for visibility, but the projection
-    // handles both.
-    setFlash({
-      spriteId: botId,
-      kind: "refuel",
-      title: "入油",
-      body: `入油已記。站 ${created.station || "—"} · 油號 ${created.fuelGrade || "—"} · ${created.liters || "—"} L · $${created.pricePerLiter || "—"}/L。odo ${created.odo || "—"} · 換油 countdown ${created.oilCountdown || "—"} · ${created.lPer100 || "—"} L/100。`,
+    // handles both. Re-find the created row in the synced cache so the
+    // flash reflects the exact merged view the glance strip will show.
+    return finishPrimaryAction((synced) => {
+      const liveCreated = created
+        ? (synced.find((item) => item.id === created.id) ?? created)
+        : null;
+      if (!liveCreated) {
+        return {
+          spriteId: botId,
+          kind: "refuel",
+          title: "入油",
+          body: "入油加唔到。",
+        };
+      }
+      return {
+        spriteId: botId,
+        kind: "refuel",
+        title: "入油",
+        body: `入油已記。站 ${liveCreated.station || "—"} · 油號 ${liveCreated.fuelGrade || "—"} · ${liveCreated.liters || "—"} L · $${liveCreated.pricePerLiter || "—"}/L。odo ${liveCreated.odo || "—"} · 換油 countdown ${liveCreated.oilCountdown || "—"} · ${liveCreated.lPer100 || "—"} L/100。`,
+      };
     });
-    return cache ?? [];
   }
 
   if (actionId === "garmin") {
@@ -787,29 +861,34 @@ export function runSpriteAction(sprite, actionId) {
       target = created;
     }
 
-    if (!target) {
-      setFlash({
+    // Re-merge overlay, then build the flash from the synced target so
+    // the four VitalPilot stats reflect the freshly-stamped values
+    // rather than the pre-write refs.
+    return finishPrimaryAction((synced) => {
+      const liveTarget = target
+        ? (synced.find((item) => item.id === target.id) ?? target)
+        : null;
+      if (!liveTarget) {
+        return {
+          spriteId: botId,
+          kind: "garmin",
+          title: "Garmin snapshot",
+          body: "只記活動同習慣——唔寫診斷，亦唔存登入資料。",
+        };
+      }
+      return {
         spriteId: botId,
         kind: "garmin",
         title: "Garmin snapshot",
         body: "只記活動同習慣——唔寫診斷，亦唔存登入資料。",
-      });
-      return cache ?? [];
-    }
-
-    setFlash({
-      spriteId: botId,
-      kind: "garmin",
-      title: "Garmin snapshot",
-      body: "只記活動同習慣——唔寫診斷，亦唔存登入資料。",
-      stats: [
-        { label: "Garmin snapshot", value: String(target.garmin || "—") },
-        { label: "活動", value: String(target.activity || "—") },
-        { label: "秤重", value: String(target.weighIn || "—") },
-        { label: "戒酒 streak", value: String(target.soberStreak || "—") },
-      ],
+        stats: [
+          { label: "Garmin snapshot", value: String(liveTarget.garmin || "—") },
+          { label: "活動", value: String(liveTarget.activity || "—") },
+          { label: "秤重", value: String(liveTarget.weighIn || "—") },
+          { label: "戒酒 streak", value: String(liveTarget.soberStreak || "—") },
+        ],
+      };
     });
-    return cache ?? [];
   }
 
   setFlash({

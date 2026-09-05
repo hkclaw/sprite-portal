@@ -1,5 +1,5 @@
 import { barChart, countByStatus, todayOverdueCounts } from "./charts.js";
-import { addFormFieldsFor, fieldKitFor, hopperHint, isOpen, priorityLabel, statusLabel } from "./schema.js";
+import { addFormFieldsFor, fieldKitFor, hopperHint, isOpen, normalizeProgress, priorityLabel, statusLabel } from "./schema.js";
 import { SHARED_ACTIONS, SPRITES } from "./sprites.js";
 import { openCountFor, openItems } from "./store.js";
 
@@ -304,6 +304,10 @@ function formatFieldValue(field, value) {
   if (value === undefined || value === null || value === "") return "";
   if (field.key === "priority") return priorityLabel(value);
   if (field.key === "urgent") return value === true ? "urgent" : "唔急";
+  // ChapterMind 進度: collapse any doubled percent (e.g. "67%%" from an
+  // older overlay write) back to a single one so desk rows never show
+  // the bug even before the seed is re-imported.
+  if (field.key === "progress") return String(normalizeProgress(value) ?? "");
   if (typeof value === "boolean") return value ? "係" : "唔係";
   if (Array.isArray(value)) return value.join("、");
   return String(value);
@@ -847,21 +851,39 @@ export function glanceChips(items, botId) {
       const trimmed = discuss.length > 48 ? `${discuss.slice(0, 48)}…` : discuss;
       return [
         { label: "書架", value: focused.shelf || "在讀" },
-        { label: "進度", value: String(focused.progress || "—") },
+        { label: "進度", value: String(normalizeProgress(focused.progress) || "—") },
         { label: "想討論呢段", value: trimmed || "—" },
         { label: "wishlist", value: String(wishlist) },
       ];
     }
     case "homepilot": {
-      const urgent = open.filter((item) => item.urgent === true).length;
+      // Focus card drives 狀態 / 供應商 chips: an already-urgent open
+      // card wins (it's the one the user just flagged, so its state
+      // change should be the visible one); otherwise the nearest
+      // deadline card so glance has something to project before any
+      // action has been taken. deadline chip is independent — it
+      // surfaces the soonest open deadline among all open rows so the
+      // user always sees what's coming up.
       const nearest = open
         .filter((item) => typeof item.deadline === "string" && item.deadline)
         .slice()
         .sort((a, b) => (a.deadline || "").localeCompare(b.deadline || ""))[0];
+      const openUrgent = open.find((item) => item.urgent === true) ?? null;
+      const focus = openUrgent ?? nearest ?? null;
+      const urgentCount = open.filter((item) => item.urgent === true).length;
       return [
-        { label: "urgent", value: String(urgent) },
+        { label: "urgent", value: String(urgentCount) },
         { label: "deadline", value: nearest ? String(nearest.deadline) : "—" },
-        { label: "供應商", value: nearest ? String(nearest.vendor || "—") : "—" },
+        {
+          label: "狀態",
+          value: focus
+            ? String(focus.houseStatus || "—")
+            : "—",
+        },
+        {
+          label: "供應商",
+          value: focus ? String(focus.vendor || "—") : "—",
+        },
       ];
     }
     case "jazz": {
