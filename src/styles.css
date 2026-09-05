@@ -93,8 +93,6 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 44px;
-  padding: 6px 8px;
   border-radius: 6px;
   color: var(--ink);
   font-size: 0.88rem;
@@ -103,7 +101,15 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   background: transparent;
 }
 
-.nav-page { padding-left: 12px; }
+.nav-page {
+  min-height: 36px;
+  padding: 6px 8px 6px 12px;
+}
+
+.nav-sprite {
+  min-height: 56px;
+  padding: 10px;
+}
 
 .nav-page:hover,
 .nav-sprite:hover,
@@ -138,6 +144,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  padding: 4px;
 }
 
 .stat-row {
@@ -305,6 +312,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   max-height: 36px;
   aspect-ratio: 1 / 1;
   place-items: center;
+  border-radius: 50%;
+  overflow: hidden;
 }
 
 .sprite-glow {
@@ -324,12 +333,23 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   z-index: 1;
 }
 
+.sprite-xs .sprite-glow {
+  inset: 10%;
+  width: 80%;
+  height: 80%;
+  border-radius: 50%;
+}
+
 .sprite-xs .sprite-body {
   width: 32px;
   height: 32px;
   aspect-ratio: 1 / 1;
   border-radius: 50%;
+  animation: none;
 }
+
+.sprite-xs .sprite-face { inset: 22% 18% 20%; }
+.sprite-xs .sprite-shadow { display: none; }
 
 .nav-sprite .sprite,
 .nav-sprite .sprite-xs,
