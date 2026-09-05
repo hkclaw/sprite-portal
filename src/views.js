@@ -71,8 +71,7 @@ function itemActions(item) {
 function formatFieldValue(field, value) {
   if (value === undefined || value === null || value === "") return "";
   if (field.key === "priority") return priorityLabel(value);
-  if (field.key === "studyReady") return value === true ? "就緒" : "未就緒";
-  if (field.key === "urgent") return value === true ? "緊急" : "唔急";
+  if (field.key === "urgent") return value === true ? "urgent" : "唔急";
   if (typeof value === "boolean") return value ? "係" : "唔係";
   if (Array.isArray(value)) return value.join("、");
   return String(value);
@@ -92,7 +91,7 @@ function personaFields(item, botId) {
 function itemCard(item, spriteName) {
   const who = spriteName ? `<span class="item-who">${escapeHtml(spriteName)}</span>` : "";
   const fields = personaFields(item, item.botId);
-  const accent = item.urgent === true || item.priority === "high" || item.when === "過期" ? "priority-high" : "";
+  const accent = item.urgent === true || item.priority === "high" || item.when === "Overdue" ? "priority-high" : "";
   return `
     <li class="item-card status-${item.status} ${accent}">
       <div class="item-top">

@@ -5,8 +5,9 @@
     "status": "open",
     "botId": "jacob",
     "list": "Work",
-    "when": "今日",
+    "due": "2026-09-05",
     "priority": "high",
+    "when": "Today",
     "tag": "收件箱",
     "updatedAt": "2026-09-05T08:10:00Z"
   },
@@ -16,8 +17,9 @@
     "status": "open",
     "botId": "jacob",
     "list": "Personal",
-    "when": "今日",
+    "due": "2026-09-05",
     "priority": "normal",
+    "when": "Today",
     "tag": "計劃",
     "updatedAt": "2026-09-05T07:40:00Z"
   },
@@ -27,8 +29,9 @@
     "status": "open",
     "botId": "jacob",
     "list": "Work",
-    "when": "過期",
+    "due": "2026-09-04",
     "priority": "low",
+    "when": "Overdue",
     "tag": "Portal",
     "updatedAt": "2026-09-04T16:20:00Z"
   },
@@ -38,8 +41,9 @@
     "status": "done",
     "botId": "jacob",
     "list": "Personal",
-    "when": "今日",
+    "due": "2026-09-03",
     "priority": "low",
+    "when": "Today",
     "tag": "收件箱",
     "updatedAt": "2026-09-03T11:00:00Z"
   },
@@ -49,10 +53,10 @@
     "status": "open",
     "botId": "english-edge",
     "nextClass": "2026-09-08 咖啡店點餐",
-    "grammarFocus": "禮貌請求：I'd like… / Could I have…",
+    "grammar": "I'd like… / Could I have…",
     "vocab": "bakery, counter, pastry",
-    "script60s": "Warm-up 三十秒，再開兩段 role play。",
-    "studyReady": true,
+    "scriptStatus": "就緒",
+    "prep": "備好",
     "updatedAt": "2026-09-05T09:05:00Z"
   },
   {
@@ -61,22 +65,22 @@
     "status": "open",
     "botId": "english-edge",
     "nextClass": "2026-09-06 十二句短回覆",
-    "grammarFocus": "時態滑倒：過去式同現在完成",
+    "grammar": "過去式同現在完成",
     "vocab": "already, yet, just",
-    "script60s": "圈出錯處，留一句更順嘅 rewrite。",
-    "studyReady": false,
+    "scriptStatus": "草稿",
+    "prep": "未備",
     "updatedAt": "2026-09-04T18:30:00Z"
   },
   {
     "id": "ee-3",
-    "title": "收集星期五測驗 phrasal verbs",
+    "title": "收集星期五 SAT vocab",
     "status": "snoozed",
     "botId": "english-edge",
-    "nextClass": "2026-09-11 日常片語測驗",
-    "grammarFocus": "phrasal verbs：get on / look after",
-    "vocab": "get on, look after, give up, pick up",
-    "script60s": "八個日常用法，唔出陷阱題。",
-    "studyReady": false,
+    "nextClass": "2026-09-11 SAT 片語小測",
+    "grammar": "phrasal verbs",
+    "vocab": "SAT: get on, look after, give up",
+    "scriptStatus": "未寫",
+    "prep": "未備",
     "updatedAt": "2026-09-03T14:12:00Z"
   },
   {
@@ -115,9 +119,10 @@
     "status": "open",
     "botId": "homepilot",
     "category": "植物",
-    "vendor": "花墟檔口",
     "deadline": "2026-09-05",
     "urgent": true,
+    "vendor": "花墟檔口",
+    "houseStatus": "未做",
     "updatedAt": "2026-09-05T02:20:00Z"
   },
   {
@@ -126,9 +131,10 @@
     "status": "open",
     "botId": "homepilot",
     "category": "雜務",
-    "vendor": "百佳",
     "deadline": "2026-09-06",
     "urgent": false,
+    "vendor": "百佳",
+    "houseStatus": "等貨",
     "updatedAt": "2026-09-04T12:00:00Z"
   },
   {
@@ -137,9 +143,10 @@
     "status": "open",
     "botId": "homepilot",
     "category": "家務",
-    "vendor": "屋苑回收點",
     "deadline": "2026-09-05",
     "urgent": false,
+    "vendor": "屋苑回收點",
+    "houseStatus": "未做",
     "updatedAt": "2026-09-05T03:15:00Z"
   },
   {
@@ -148,9 +155,10 @@
     "status": "done",
     "botId": "homepilot",
     "category": "家務",
-    "vendor": "——",
     "deadline": "2026-09-04",
     "urgent": false,
+    "vendor": "——",
+    "houseStatus": "完成",
     "updatedAt": "2026-09-04T13:45:00Z"
   },
   {
@@ -159,9 +167,12 @@
     "status": "open",
     "botId": "jazz",
     "odo": "42,810 km",
-    "lastFill": "2026-09-02",
+    "station": "加德士黃竹坑",
+    "fuelGrade": "98",
+    "liters": "38.2",
     "pricePerLiter": "16.8",
-    "oilKmLeft": "1,200",
+    "oilCountdown": "1,200 km",
+    "lPer100": "7.2",
     "updatedAt": "2026-09-05T04:05:00Z"
   },
   {
@@ -170,9 +181,12 @@
     "status": "open",
     "botId": "jazz",
     "odo": "42,810 km",
-    "lastFill": "2026-09-02",
-    "pricePerLiter": "16.8",
-    "oilKmLeft": "1,200",
+    "station": "Shell 香港仔",
+    "fuelGrade": "95",
+    "liters": "—",
+    "pricePerLiter": "16.5",
+    "oilCountdown": "1,200 km",
+    "lPer100": "7.2",
     "updatedAt": "2026-09-04T22:18:00Z"
   },
   {
@@ -181,9 +195,12 @@
     "status": "done",
     "botId": "jazz",
     "odo": "41,600 km",
-    "lastFill": "2026-08-20",
+    "station": "加德士黃竹坑",
+    "fuelGrade": "98",
+    "liters": "36.0",
     "pricePerLiter": "16.4",
-    "oilKmLeft": "2,400",
+    "oilCountdown": "2,400 km",
+    "lPer100": "7.4",
     "updatedAt": "2026-09-03T09:30:00Z"
   },
   {
