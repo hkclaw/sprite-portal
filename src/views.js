@@ -660,6 +660,13 @@ export function renderDashboard(items, opts = {}) {
       </section>
       <section class="panel">
         <div class="panel-head">
+          <h2>六精靈速覽</h2>
+          <p>每房嘅小速覽，click 即入房。</p>
+        </div>
+        ${glanceCardsHtml(items)}
+      </section>
+      <section class="panel">
+        <div class="panel-head">
           <h2>精靈一覽</h2>
           <p>六位助手。未完成數目來自 <code>public/data/items.json</code>。</p>
         </div>
@@ -775,11 +782,16 @@ export function renderNotFound(items = []) {
  * Jacob/HomePilot/ChapterMind, the newest row's persona fields for the
  * rest. Empty arrays mean "no glance info yet"; the strip then renders
  * a friendly one-liner instead of a cloud of "—".
+ *
+ * Exported because the Dashboard 六精靈速覽 mini-cards reuse this exact
+ * projection so the user sees the same chips in both places. The caller
+ * is responsible for filtering items by `botId` first — renderSprite
+ * already does, and `glanceCardHtml` does the same.
  * @param {import("./schema.js").SpriteItem[]} items
  * @param {string} botId
  * @returns {{ label: string, value: string }[]}
  */
-function glanceChips(items, botId) {
+export function glanceChips(items, botId) {
   const open = items.filter(isOpen);
   const sortedByNewest = items
     .slice()
@@ -920,6 +932,60 @@ function glanceStripHtml(items, opts = {}) {
       <div class="glance-body"${expanded ? "" : ' hidden=""'}>${body}</div>
     </section>
   `;
+}
+
+/**
+ * One Dashboard mini-card: avatar + name + open count + 2-4 glance chips
+ * (same projection the room strip uses), wrapped in an <a data-link> so
+ * clicking anywhere on the card — including the 入房 badge — navigates
+ * to the sprite room. No new router wiring needed; the existing
+ * history-router picks it up.
+ *
+ * When glanceChips returns [] (jazz / vitalpilot with no items yet), we
+ * still render avatar / name / count / 入房, with a friendly TC one-liner
+ * instead of a chip cloud. Pure projection; never mutates `items`, the
+ * store, overlay, or seeds.
+ * @param {import("./sprites.js").Sprite} sprite
+ * @param {import("./schema.js").SpriteItem[]} items
+ */
+function glanceCardHtml(sprite, items) {
+  const botItems = items.filter((item) => item.botId === sprite.id);
+  const chips = glanceChips(botItems, sprite.id);
+  const count = openCountFor(sprite.id, items);
+  const body = chips.length
+    ? `<div class="glance-chips">${chips
+        .map(
+          (chip) => `
+        <span class="glance-chip">
+          <span class="glance-chip-label">${escapeHtml(chip.label)}</span>
+          <span class="glance-chip-value">${escapeHtml(chip.value)}</span>
+        </span>`,
+        )
+        .join("")}</div>`
+    : `<p class="glance-empty">${escapeHtml("呢度暫時冇速覽——入房睇吓書枱。")}</p>`;
+  return `
+    <a class="glance-card" href="${sprite.path}" data-link data-bot="${escapeAttr(sprite.id)}" title="入 ${escapeAttr(sprite.name)} 嘅房">
+      <div class="glance-card-head">
+        <span class="glance-card-avatar" aria-hidden="true">${spriteFigure(sprite, "xs")}</span>
+        <span class="glance-card-info">
+          <span class="glance-card-name">${escapeHtml(sprite.name)}</span>
+          <span class="glance-card-count">${count} 張未完成</span>
+        </span>
+        <span class="glance-card-cta" aria-hidden="true">入房 →</span>
+      </div>
+      ${body}
+    </a>
+  `;
+}
+
+/**
+ * Responsive grid of six sprite mini-cards for the Dashboard 六精靈速覽
+ * section. Same render order as SPRITES so the layout matches the sidebar
+ * and the existing 精靈一覽 table. No new router, no store changes.
+ * @param {import("./schema.js").SpriteItem[]} items
+ */
+function glanceCardsHtml(items) {
+  return `<div class="glance-cards">${SPRITES.map((sprite) => glanceCardHtml(sprite, items)).join("")}</div>`;
 }
 
 function escapeHtml(value) {

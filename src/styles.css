@@ -662,6 +662,11 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   .page { padding: 24px 18px 48px; }
   .stat-row { grid-template-columns: 1fr 1fr; }
   .nav-copy small { display: none; }
+  .glance-cards { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 520px) {
+  .glance-cards { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -966,5 +971,118 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   font-size: 0.82rem;
   color: var(--muted);
   font-weight: 600;
+}
+
+/* --- Dashboard 六精靈速覽 mini-cards ---
+   Responsive grid of one card per SPRITES entry, each routing to its
+   room via data-link. Reuses the same .glance-chips / .glance-chip /
+   .glance-empty look as the room strip so the two surfaces feel like
+   the same glance, just at different zoom levels. 1:1 avatar (sprite-xs
+   already enforces 36x36 / aspect-ratio 1/1), CSS vars only. */
+.glance-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.glance-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+}
+
+.glance-card:hover {
+  background: var(--hover);
+  border-color: rgba(20, 143, 138, 0.32);
+}
+
+.glance-card:active {
+  transform: translateY(1px);
+}
+
+.glance-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(20, 143, 138, 0.28);
+  border-color: var(--ink);
+}
+
+.glance-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.glance-card-avatar {
+  display: inline-flex;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  max-width: 36px;
+  max-height: 36px;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  overflow: hidden;
+  place-items: center;
+}
+
+.glance-card-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.glance-card-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.glance-card-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  margin-top: 1px;
+}
+
+.glance-card-cta {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--hover);
+  border: 1px solid transparent;
+  border-radius: 99px;
+  padding: 3px 10px;
+  flex: 0 0 auto;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.glance-card:hover .glance-card-cta,
+.glance-card:focus-visible .glance-card-cta {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+
+.glance-card .glance-chips {
+  margin: 0;
+}
+
+.glance-card .glance-empty {
+  font-size: 0.78rem;
 }
 
