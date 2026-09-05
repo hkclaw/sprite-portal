@@ -236,45 +236,149 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
   border-radius: 6px;
   padding: 6px 10px;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.08s ease, box-shadow 0.15s ease;
 }
 
 .btn:hover { background: var(--hover); }
-.btn-complete { color: #0f7b6c; }
-.btn-snooze { color: #9a6700; }
-.btn-primary { background: var(--ink); color: #fff; border-color: var(--ink); }
-.btn-primary:hover { opacity: 0.92; }
+.btn:active { transform: translateY(1px); }
+.btn-complete {
+  color: #0a6e60;
+  border-color: #bfe3dc;
+  background: #f1faf7;
+}
+.btn-complete:hover {
+  background: #e3f4ef;
+  border-color: #0f7b6c;
+  color: #064f44;
+}
+.btn-complete:active { background: #d6ece5; }
+.btn-snooze {
+  color: #8a5e00;
+  border-color: #ecd9a8;
+  background: #fdf6e3;
+}
+.btn-snooze:hover {
+  background: #f6ecc8;
+  border-color: #9a6700;
+  color: #6b4700;
+}
+.btn-snooze:active { background: #efe2b6; }
+.btn-primary {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+.btn-primary:hover {
+  background: #1f1f1f;
+  border-color: #1f1f1f;
+  opacity: 1;
+}
+.btn-primary:active {
+  background: #111;
+  transform: translateY(1px);
+}
 
 .flash-panel { padding: 14px 16px; margin-bottom: 16px; }
 .eyebrow { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 
 .chart-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
-.chart-card { padding: 14px 16px 16px; }
-.chart-card h3 { font-size: 0.95rem; }
-.chart-bars { display: grid; gap: 8px; }
+.chart-card { padding: 16px 18px 18px; }
+.chart-card h3 {
+  font-size: 0.98rem;
+  color: var(--ink);
+  letter-spacing: 0.01em;
+}
+.chart-card .chart-note {
+  font-size: 0.74rem;
+  color: var(--muted);
+  margin: 2px 0 12px;
+}
+.chart-bars { display: grid; gap: 10px; }
 .chart-row {
   display: grid;
-  grid-template-columns: minmax(64px, 0.7fr) 1fr 36px;
-  gap: 8px;
+  grid-template-columns: minmax(72px, 0.85fr) 1fr 44px;
+  gap: 10px;
   align-items: center;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
+  padding: 2px 0;
 }
-.chart-label { color: var(--muted); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chart-label {
+  color: var(--ink);
+  font-weight: 700;
+  opacity: 0.88;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .chart-track {
-  height: 8px;
-  background: var(--hover);
+  height: 10px;
+  background: #ebeae6;
   border-radius: 99px;
   overflow: hidden;
 }
 .chart-track i { display: block; height: 100%; border-radius: 99px; }
-.chart-value { text-align: right; font-weight: 700; }
+.chart-value {
+  text-align: right;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.chart-empty {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
 
-.empty-desk { text-align: center; padding: 32px 12px; color: var(--muted); }
+.empty-desk {
+  text-align: center;
+  padding: 36px 16px;
+  color: var(--muted);
+}
+.empty-desk .row-avatar {
+  justify-content: center;
+  margin-bottom: 10px;
+}
+.empty-desk .empty-title,
+.empty-desk h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.empty-desk .empty-sub,
+.empty-desk p {
+  font-size: 0.84rem;
+  color: var(--muted);
+  margin: 0 auto;
+  max-width: 28rem;
+}
+.empty-hopper {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--muted);
+  background: #fafaf8;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+.empty-hopper .empty-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.empty-hopper .empty-sub {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin: 0;
+}
 .desk-foot { margin-top: 8px; font-size: 0.78rem; }
 .text-link { font-weight: 700; }
 .text-link:hover { text-decoration: underline; }

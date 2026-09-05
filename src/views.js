@@ -148,9 +148,9 @@ function dashboardCharts(items) {
           { label: "Today", value: when.today, color: "#148F8A" },
           { label: "Overdue", value: when.overdue, color: "#E07A5F" },
         ],
-        { title: "Today / Overdue", note: "TickTick When 欄" },
+        { title: "今日／逾期", note: "TickTick When 欄位" },
       )}
-      ${barChart(bySprite, { title: "各精靈未完成", note: "六位助手" })}
+      ${barChart(bySprite, { title: "各精靈未完成", note: "六位助手未完成數" })}
     </div>
   `;
 }
@@ -160,7 +160,7 @@ function spriteCharts(sprite, items) {
   const completion = barChart(
     [
       { label: "未完成", value: counts.open, color: sprite.brand.primary },
-      { label: "完成", value: counts.done, color: "#9b9a97" },
+      { label: "完成", value: counts.done, color: "#787774" },
       { label: "延後", value: counts.snoozed, color: "#C9A24A" },
     ],
     { title: "完成趨勢" },
@@ -176,7 +176,7 @@ function spriteCharts(sprite, items) {
             { label: "Today", value: when.today, color: "#148F8A" },
             { label: "Overdue", value: when.overdue, color: "#E07A5F" },
           ],
-          { title: "Today / Overdue" },
+          { title: "今日／逾期", note: "TickTick When 欄位" },
         )}
       </div>
     `;
@@ -287,12 +287,19 @@ export function renderDashboard(items) {
           <h2>執漏欄</h2>
           <p>入房就可以完成或延後。</p>
         </div>
-        <div class="table-wrap">
-          <table class="desk-table">
-            <tr><th>標題</th><th>精靈</th><th>摘要</th><th>狀態</th></tr>
-            ${hopperRows}
-          </table>
-        </div>
+        ${
+          hopperItems.length
+            ? `<div class="table-wrap">
+                <table class="desk-table">
+                  <tr><th>標題</th><th>精靈</th><th>摘要</th><th>狀態</th></tr>
+                  ${hopperRows}
+                </table>
+              </div>`
+            : `<div class="empty-hopper">
+                <p class="empty-title">執漏欄暫時冇嘢</p>
+                <p class="empty-sub">未完成卡片會喺度排隊。而家全部跟咗，可以休息一下。</p>
+              </div>`
+        }
       </section>
       <section class="panel">
         <div class="panel-head">
@@ -326,8 +333,8 @@ export function renderSprite(sprite, items, flash, allItems = items) {
     : `
       <div class="empty-desk">
         <div class="row-avatar" aria-hidden="true">${spriteFigure(sprite, "xs")}</div>
-        <h3>書枱清空咗</h3>
-        <p>而家未有 <strong>${sprite.name}</strong> 嘅卡片。</p>
+        <h3 class="empty-title">書枱清空咗</h3>
+        <p class="empty-sub">而家未有 <strong>${sprite.name}</strong> 嘅卡片，可以開新卡。</p>
       </div>
     `;
 

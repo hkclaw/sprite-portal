@@ -14,22 +14,24 @@ function escape(value) {
  */
 export function barChart(rows, opts = {}) {
   const max = Math.max(1, ...rows.map((row) => Number(row.value) || 0));
-  const bars = rows
-    .map((row) => {
-      const value = Number(row.value) || 0;
-      const pct = Math.max(4, Math.round((value / max) * 100));
-      const color = row.color || "#2383e2";
-      return `
-        <div class="chart-row">
-          <span class="chart-label">${escape(row.label)}</span>
-          <div class="chart-track" aria-hidden="true">
-            <i style="width:${pct}%;background:${color}"></i>
-          </div>
-          <span class="chart-value">${escape(value)}</span>
-        </div>
-      `;
-    })
-    .join("");
+  const bars = rows.length
+    ? rows
+        .map((row) => {
+          const value = Number(row.value) || 0;
+          const pct = Math.max(4, Math.round((value / max) * 100));
+          const color = row.color || "#2383e2";
+          return `
+            <div class="chart-row" aria-label="${escape(row.label)}: ${escape(value)}">
+              <span class="chart-label">${escape(row.label)}</span>
+              <div class="chart-track" aria-hidden="true">
+                <i style="width:${pct}%;background:${color}"></i>
+              </div>
+              <span class="chart-value">${escape(value)}</span>
+            </div>
+          `;
+        })
+        .join("")
+    : `<p class="chart-empty">暫時未有數據</p>`;
 
   return `
     <section class="chart-card">
