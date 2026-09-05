@@ -29,7 +29,7 @@ Then open [http://127.0.0.1:5173](http://127.0.0.1:5173).
 | Theme | Per-sprite brand colors (not a shared candy palette) |
 | Data | Local JSON at `public/data/items.json` |
 
-介面預設繁體中文。每隻精靈用自己嘅 persona 欄位（唔再用共用 field-kit）；種子資料喺 `public/data/items.json`。
+介面預設繁體中文；每隻精靈用自己嘅 persona 欄位（TickTick／下一堂／在讀／類別／odo 入油／Garmin），唔再用共用 field-kit。種子喺 `public/data/items.json`。
 
 ## Sprites
 

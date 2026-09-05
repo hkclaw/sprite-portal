@@ -1,7 +1,7 @@
 import { asItem, isOpen } from "./schema.js";
 
 const ITEMS_URL = "/data/items.json";
-const STORAGE_KEY = "sprite-portal-items-v2";
+const STORAGE_KEY = "sprite-portal-items-v3";
 
 /** @type {import("./schema.js").SpriteItem[] | null} */
 let cache = null;
@@ -111,7 +111,10 @@ export function openCountFor(botId, items) {
 
 export function completeItem(id) {
   const item = (cache ?? []).find((entry) => entry.id === id);
-  const updated = patchItem(id, { status: "done" });
+  /** @type {Record<string, unknown>} */
+  const patch = { status: "done" };
+  if (item?.botId === "homepilot") patch.houseStatus = "完成";
+  const updated = patchItem(id, patch);
   setFlash({
     spriteId: item?.botId,
     kind: "complete",
@@ -127,6 +130,10 @@ export function snoozeItem(id) {
   const patch = { status: "snoozed" };
   if (typeof item?.deadline === "string") {
     patch.deadline = shiftDue(item.deadline, 1);
+  }
+  if (typeof item?.due === "string") {
+    patch.due = shiftDue(item.due, 1);
+    patch.when = "Today";
   }
   if (typeof item?.nextClass === "string" && /^\d{4}-\d{2}-\d{2}/.test(item.nextClass)) {
     patch.nextClass = shiftDue(item.nextClass.slice(0, 10), 1);
@@ -180,14 +187,14 @@ export function runSpriteAction(sprite, actionId) {
     const open = (cache ?? []).filter((item) => item.botId === botId && isOpen(item));
     const work = open.filter((item) => item.list === "Work").length;
     const personal = open.filter((item) => item.list === "Personal").length;
-    const today = open.filter((item) => item.when === "今日").length;
-    const overdue = open.filter((item) => item.when === "過期").length;
+    const today = open.filter((item) => item.when === "Today").length;
+    const overdue = open.filter((item) => item.when === "Overdue").length;
     const high = open.filter((item) => item.priority === "high").length;
     setFlash({
       spriteId: botId,
       kind: "inbox",
       title: "執漏收件箱",
-      body: `TickTick Work ${work} / Personal ${personal}。今日 ${today} · 過期 ${overdue}。優先高 ${high} 張。`,
+      body: `TickTick Work ${work} / Personal ${personal}。Today ${today} · Overdue ${overdue}。優先高 ${high} 張。到期最早：${open[0]?.due || "—"}。`,
     });
     return cache ?? [];
   }
@@ -199,7 +206,7 @@ export function runSpriteAction(sprite, actionId) {
       kind: "class",
       title: "今日課堂",
       body: next
-        ? `下堂 ${next.nextClass || "—"}。文法重點：${next.grammarFocus || "—"}。詞彙：${next.vocab || "—"}。60 秒講稿：${next.script60s || "—"}。温習就緒？${next.studyReady === true ? "就緒" : "未就緒"}。`
+        ? `下一堂 ${next.nextClass || "—"}。grammar：${next.grammar || "—"}。vocab：${next.vocab || "—"}。speaking script status：${next.scriptStatus || "—"}。prep：${next.prep || "—"}。`
         : "冇未完成嘅課堂卡。",
     });
     return cache ?? [];
@@ -234,7 +241,7 @@ export function runSpriteAction(sprite, actionId) {
       kind: "urgent",
       title: "家居緊急",
       body: urgent[0]
-        ? `先處理：${urgent[0].title}（${urgent[0].category || "類別 —"} · ${urgent[0].vendor || "供應商 —"} · 限期 ${urgent[0].deadline || "—"}）`
+        ? `先處理：${urgent[0].title}（${urgent[0].category || "類別 —"} · 供應商 ${urgent[0].vendor || "—"} · deadline ${urgent[0].deadline || "—"} · 狀態 ${urgent[0].houseStatus || "—"}）`
         : "冇標成緊急嘅家務。",
     });
     return cache ?? [];
@@ -247,15 +254,18 @@ export function runSpriteAction(sprite, actionId) {
       status: "done",
       botId,
       odo: "43,020 km",
-      lastFill: nowIso().slice(0, 10),
+      station: "加德士黃竹坑",
+      fuelGrade: "98",
+      liters: "36.4",
       pricePerLiter: "16.9",
-      oilKmLeft: "980",
+      oilCountdown: "980 km",
+      lPer100: "7.1",
     });
     setFlash({
       spriteId: botId,
       kind: "refuel",
       title: "入油",
-      body: "上次入油已記。odo 43,020 km · $16.9/L · 換油剩餘 980 km。",
+      body: "入油已記。站 加德士黃竹坑 · 油號 98 · 36.4 L · $16.9/L。odo 43,020 km · 換油 countdown 980 km · 7.1 L/100。",
     });
     return cache ?? [];
   }
@@ -271,7 +281,7 @@ export function runSpriteAction(sprite, actionId) {
         { label: "Garmin snapshot", value: String(live?.garmin || "8,432 步 · 42 分鐘") },
         { label: "活動", value: String(live?.activity || "Activity Monitor · 港灣圈") },
         { label: "秤重", value: String(live?.weighIn || "72.4 kg") },
-        { label: "戒酒進度", value: String(live?.soberStreak || "12 日") },
+        { label: "戒酒 streak", value: String(live?.soberStreak || "12 日") },
       ],
     });
     return cache ?? [];

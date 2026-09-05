@@ -21,16 +21,17 @@ export const STATUS_LABELS = {
 export const FIELD_KITS = {
   jacob: [
     { key: "list", label: "TickTick", hint: "Work / Personal" },
-    { key: "when", label: "何時", hint: "今日 / 過期" },
+    { key: "due", label: "到期" },
     { key: "priority", label: "優先" },
-    { key: "tag", label: "標籤" },
+    { key: "when", label: "Today / Overdue" },
+    { key: "tag", label: "tag" },
   ],
   "english-edge": [
-    { key: "nextClass", label: "下堂" },
-    { key: "grammarFocus", label: "文法重點" },
-    { key: "vocab", label: "詞彙" },
-    { key: "script60s", label: "60 秒講稿" },
-    { key: "studyReady", label: "温習就緒" },
+    { key: "nextClass", label: "下一堂" },
+    { key: "grammar", label: "grammar" },
+    { key: "vocab", label: "vocab" },
+    { key: "scriptStatus", label: "speaking script status" },
+    { key: "prep", label: "prep" },
   ],
   chaptermind: [
     { key: "shelf", label: "書架", hint: "在讀 / wishlist" },
@@ -39,21 +40,25 @@ export const FIELD_KITS = {
   ],
   homepilot: [
     { key: "category", label: "類別" },
+    { key: "deadline", label: "deadline" },
+    { key: "urgent", label: "urgent" },
     { key: "vendor", label: "供應商" },
-    { key: "deadline", label: "限期" },
-    { key: "urgent", label: "緊急" },
+    { key: "houseStatus", label: "狀態" },
   ],
   jazz: [
     { key: "odo", label: "odo" },
-    { key: "lastFill", label: "上次入油" },
+    { key: "station", label: "站" },
+    { key: "fuelGrade", label: "油號" },
+    { key: "liters", label: "L" },
     { key: "pricePerLiter", label: "$/L" },
-    { key: "oilKmLeft", label: "換油剩餘 km" },
+    { key: "oilCountdown", label: "換油 countdown" },
+    { key: "lPer100", label: "L/100" },
   ],
   vitalpilot: [
     { key: "garmin", label: "Garmin snapshot" },
-    { key: "activity", label: "活動", hint: "Activity Monitor" },
+    { key: "activity", label: "活動" },
     { key: "weighIn", label: "秤重" },
-    { key: "soberStreak", label: "戒酒進度" },
+    { key: "soberStreak", label: "戒酒 streak" },
   ],
 };
 
@@ -131,19 +136,21 @@ export function priorityLabel(priority) {
 export function hopperHint(item) {
   switch (item.botId) {
     case "jacob":
-      return [item.list, item.when, priorityLabel(item.priority), item.tag].filter(Boolean).join(" · ");
+      return [item.list, item.when, item.due ? `到期 ${item.due}` : "", item.tag].filter(Boolean).join(" · ");
     case "english-edge":
-      return [item.nextClass, item.studyReady === true ? "温習就緒" : ""].filter(Boolean).join(" · ");
+      return [item.nextClass, item.prep, item.scriptStatus].filter(Boolean).join(" · ");
     case "chaptermind":
       return [item.shelf, item.progress].filter(Boolean).join(" · ");
     case "homepilot":
-      return [item.category, item.deadline, item.urgent === true ? "緊急" : ""].filter(Boolean).join(" · ");
+      return [item.category, item.deadline, item.urgent === true ? "urgent" : "", item.houseStatus]
+        .filter(Boolean)
+        .join(" · ");
     case "jazz":
-      return [item.odo ? `odo ${item.odo}` : "", item.lastFill ? `上次入油 ${item.lastFill}` : ""]
+      return [item.odo ? `odo ${item.odo}` : "", item.station, item.lPer100 ? `${item.lPer100} L/100` : ""]
         .filter(Boolean)
         .join(" · ");
     case "vitalpilot":
-      return [item.activity, item.soberStreak ? `戒酒進度 ${item.soberStreak}` : ""].filter(Boolean).join(" · ");
+      return [item.activity, item.soberStreak ? `戒酒 streak ${item.soberStreak}` : ""].filter(Boolean).join(" · ");
     default:
       return "";
   }
