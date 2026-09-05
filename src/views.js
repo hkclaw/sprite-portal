@@ -118,6 +118,78 @@ function deskFilterChipsHtml(active) {
 }
 
 /**
+ * Hopper filter chips. Reuses `.desk-filter` / `.desk-filter-chip` so the
+ * look matches the sprite-room status chips exactly; only the action name
+ * (data-action="hopper-filter") and labels differ. UI-only — never touches
+ * the store. Module var + sessionStorage in main.js keep the choice sticky.
+ * @param {"open"|"today"|"overdue"|"all"} active
+ */
+function hopperFilterChipsHtml(active) {
+  const chips = [
+    { value: "open", label: "未完成" },
+    { value: "today", label: "Today" },
+    { value: "overdue", label: "Overdue" },
+    { value: "all", label: "全部" },
+  ];
+  return `
+    <div class="desk-filter hopper-filter" role="group" aria-label="執漏欄篩選">
+      ${chips
+        .map((chip) => {
+          const isActive = chip.value === active;
+          return `<button type="button" class="desk-filter-chip${isActive ? " is-active" : ""}" data-action="hopper-filter" data-filter="${escapeAttr(chip.value)}" aria-pressed="${isActive ? "true" : "false"}">${escapeHtml(chip.label)}</button>`;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+/**
+ * Source list for the hopper rows. Pure projection — never mutates `items`.
+ *   open    → status === "open"
+ *   today   → when === "Today" AND status === "open"
+ *   overdue → when === "Overdue" AND status === "open"
+ *   all     → any status (caller sorts by updatedAt and slices top 8)
+ * @param {import("./schema.js").SpriteItem[]} items
+ * @param {"open"|"today"|"overdue"|"all"} filter
+ */
+function hopperSource(items, filter) {
+  if (filter === "today") {
+    return items.filter((item) => item.when === "Today" && item.status === "open");
+  }
+  if (filter === "overdue") {
+    return items.filter((item) => item.when === "Overdue" && item.status === "open");
+  }
+  if (filter === "all") {
+    return items;
+  }
+  return items.filter((item) => item.status === "open");
+}
+
+/**
+ * Filter-aware empty-state copy for the hopper. Keeps the existing default
+ * vibe for `open` and says something honest for the other slices.
+ * @type {Record<"open"|"today"|"overdue"|"all", { title: string, sub: string }>}
+ */
+const HOPPER_EMPTY = {
+  open: {
+    title: "執漏欄暫時冇嘢",
+    sub: "未完成卡片會喺度排隊。而家全部跟咗，可以休息一下。",
+  },
+  today: {
+    title: "今日冇未完成",
+    sub: "今日冇未完成卡片，揀其他篩選或者加新嘅。",
+  },
+  overdue: {
+    title: "冇逾期未完成",
+    sub: "冇逾期未完成嘅卡片，揀其他篩選睇下。",
+  },
+  all: {
+    title: "執漏欄暫時冇嘢",
+    sub: "全部卡片都係空。加返一張先。",
+  },
+};
+
+/**
  * Empty desk vibe, filter-aware so it tells the user which slice is empty.
  * @param {import("./sprites.js").Sprite} sprite
  * @param {"open"|"all"|"done"|"snoozed"} filter
@@ -478,15 +550,27 @@ export function personaAddFieldsHtml(botId) {
   return `<div class="add-item-persona-fields" data-bot="${escapeAttr(botId)}">${fields.map(personaInputHtml).join("")}</div>`;
 }
 
-export function renderDashboard(items) {
-  const open = openItems(items);
-  const hopperItems = open
+export function renderDashboard(items, opts = {}) {
+  const hopperFilter = opts.hopperFilter ?? "open";
+  const source = hopperSource(items, hopperFilter);
+  const hopperItems = source
     .slice()
     .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))
     .slice(0, 8);
+  const open = openItems(items);
   const nameById = Object.fromEntries(SPRITES.map((sprite) => [sprite.id, sprite.name]));
   const counts = countByStatus(items);
   const when = todayOverdueCounts(items);
+  const empty = HOPPER_EMPTY[hopperFilter] ?? HOPPER_EMPTY.open;
+
+  // Map a hopper-filter value to the dashboard stat that mirrors it. `all`
+  // intentionally leaves every stat dark so we don't mislead the user into
+  // thinking one of the four counters is the active slice.
+  const STAT_TO_HOPPER = {
+    open: "open",
+    today: "today",
+    overdue: "overdue",
+  };
 
   const hopperRows = hopperItems
     .map(
@@ -528,10 +612,23 @@ export function renderDashboard(items) {
         </div>
       </header>
       <section class="stat-row">
-        <div class="stat"><span>未完成</span><strong>${counts.open}</strong></div>
-        <div class="stat"><span>完成</span><strong>${counts.done}</strong></div>
-        <div class="stat"><span>Today</span><strong>${when.today}</strong></div>
-        <div class="stat"><span>Overdue</span><strong>${when.overdue}</strong></div>
+        ${(() => {
+          const openActive = hopperFilter === STAT_TO_HOPPER.open;
+          const todayActive = hopperFilter === STAT_TO_HOPPER.today;
+          const overdueActive = hopperFilter === STAT_TO_HOPPER.overdue;
+          return `
+            <div class="stat is-clickable${openActive ? " is-active" : ""}" data-action="hopper-filter" data-filter="open" role="button" tabindex="0" aria-pressed="${openActive ? "true" : "false"}" title="切換執漏欄到未完成">
+              <span>未完成</span><strong>${counts.open}</strong>
+            </div>
+            <div class="stat"><span>完成</span><strong>${counts.done}</strong></div>
+            <div class="stat is-clickable${todayActive ? " is-active" : ""}" data-action="hopper-filter" data-filter="today" role="button" tabindex="0" aria-pressed="${todayActive ? "true" : "false"}" title="切換執漏欄到今日">
+              <span>Today</span><strong>${when.today}</strong>
+            </div>
+            <div class="stat is-clickable${overdueActive ? " is-active" : ""}" data-action="hopper-filter" data-filter="overdue" role="button" tabindex="0" aria-pressed="${overdueActive ? "true" : "false"}" title="切換執漏欄到逾期">
+              <span>Overdue</span><strong>${when.overdue}</strong>
+            </div>
+          `;
+        })()}
       </section>
       ${dashboardCharts(items)}
       <section class="panel">
@@ -546,6 +643,7 @@ export function renderDashboard(items) {
           <h2>執漏欄</h2>
           <p>入房就可以完成或延後。</p>
         </div>
+        ${hopperFilterChipsHtml(hopperFilter)}
         ${
           hopperItems.length
             ? `<div class="table-wrap">
@@ -555,8 +653,8 @@ export function renderDashboard(items) {
                 </table>
               </div>`
             : `<div class="empty-hopper">
-                <p class="empty-title">執漏欄暫時冇嘢</p>
-                <p class="empty-sub">未完成卡片會喺度排隊。而家全部跟咗，可以休息一下。</p>
+                <p class="empty-title">${escapeHtml(empty.title)}</p>
+                <p class="empty-sub">${escapeHtml(empty.sub)}</p>
               </div>`
         }
       </section>

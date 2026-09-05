@@ -164,6 +164,29 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .stat span { display: block; color: var(--muted); font-size: 0.75rem; font-weight: 700; }
 .stat strong { font-size: 1.4rem; }
 
+/* Clickable stat tiles on the Dashboard. Mirrors the active look of the
+   desk-filter / hopper-filter chips so the active hopper slice reads at
+   a glance. 完成 stays non-clickable on purpose — there's no hopper slice
+   that matches it. */
+.stat.is-clickable {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.stat.is-clickable:hover { background: var(--hover); }
+.stat.is-clickable:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(20, 143, 138, 0.28);
+  border-color: var(--ink);
+}
+.stat.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+.stat.is-active span { color: rgba(255, 255, 255, 0.78); }
+.stat.is-active:hover { background: var(--ink); border-color: var(--ink); }
+
 .panel { padding: 18px 20px 8px; margin-bottom: 20px; }
 .panel-head {
   display: flex;

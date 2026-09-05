@@ -26,6 +26,50 @@ import "./styles.css";
  */
 let activeDeskFilter = "open";
 
+const VALID_HOPPER_FILTERS = ["open", "today", "overdue", "all"];
+const HOPPER_FILTER_STORAGE_KEY = "sprite-portal:hopper-filter";
+
+/**
+ * Read the sticky hopper filter from sessionStorage. Falls back to "open"
+ * when the storage slot is missing, empty, or carries an unknown value —
+ * anything stale in devtools shouldn't crash the dashboard.
+ * @returns {"open"|"today"|"overdue"|"all"}
+ */
+function readHopperFilter() {
+  try {
+    const raw = sessionStorage.getItem(HOPPER_FILTER_STORAGE_KEY);
+    if (raw && VALID_HOPPER_FILTERS.includes(raw)) {
+      return /** @type {"open"|"today"|"overdue"|"all"} */ (raw);
+    }
+  } catch {
+    /* sessionStorage may throw in privacy modes; default is fine */
+  }
+  return "open";
+}
+
+/**
+ * Persist the hopper filter so reload / re-mount keeps the user's choice.
+ * Wrapped in try/catch so quota errors or locked-down storage don't break
+ * the click path.
+ * @param {"open"|"today"|"overdue"|"all"} value
+ */
+function writeHopperFilter(value) {
+  try {
+    sessionStorage.setItem(HOPPER_FILTER_STORAGE_KEY, value);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * UI-only Dashboard hopper filter. Mirrors the desk-filter pattern: a module
+ * var keeps the active slice across paint() while sessionStorage makes it
+ * sticky for the tab session. Defaults to "open" so the first paint shows
+ * the working subset, same vibe as the desk filter.
+ * @type {"open"|"today"|"overdue"|"all"}
+ */
+let activeHopperFilter = readHopperFilter();
+
 /** When set, renderSprite opens the edit form for this item inline. */
 let editingItemId = null;
 
@@ -86,7 +130,7 @@ async function paint(pathname) {
 
   if (path === "/") {
     const items = await loadItems();
-    app.innerHTML = renderDashboard(items);
+    app.innerHTML = renderDashboard(items, { hopperFilter: activeHopperFilter });
     return;
   }
 
@@ -142,6 +186,16 @@ document.addEventListener("click", async (event) => {
     const filter = button.getAttribute("data-filter");
     if (filter && VALID_DESK_FILTERS.includes(filter)) {
       activeDeskFilter = /** @type {"open"|"all"|"done"|"snoozed"} */ (filter);
+    }
+    await paint(path);
+    return;
+  }
+
+  if (action === "hopper-filter") {
+    const filter = button.getAttribute("data-filter");
+    if (filter && VALID_HOPPER_FILTERS.includes(filter)) {
+      activeHopperFilter = /** @type {"open"|"today"|"overdue"|"all"} */ (filter);
+      writeHopperFilter(activeHopperFilter);
     }
     await paint(path);
     return;
@@ -320,4 +374,18 @@ document.addEventListener("change", (event) => {
   if (!host) return;
   host.dataset.bot = target.value;
   host.innerHTML = personaAddFieldsHtml(target.value);
+});
+
+// Keyboard activation for the clickable dashboard stats. They're <div>s with
+// role="button" + tabindex="0", so Enter/Space need to map to a synthetic
+// click — the existing click handler does the rest. Stays focused on stat
+// elements only; chips are already <button>s and handle keys natively.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  if (!target.classList.contains("stat") || !target.classList.contains("is-clickable")) return;
+  if (!target.hasAttribute("data-action")) return;
+  event.preventDefault();
+  target.click();
 });
